@@ -15,9 +15,17 @@ const navigation = [
 
 type AppShellProps = Readonly<{
   children: ReactNode;
+  agencyName?: string;
+  userEmail?: string;
+  logoutAction?: () => Promise<void>;
 }>;
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({
+  children,
+  agencyName = "DIINI Real Estate",
+  userEmail,
+  logoutAction,
+}: AppShellProps) {
   return (
     <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[17rem_1fr]">
       <aside className="hidden border-r border-slate-200 bg-slate-950 px-4 py-6 text-white lg:flex lg:flex-col">
@@ -56,10 +64,21 @@ export function AppShell({ children }: AppShellProps) {
             </div>
             <div className="hidden lg:block">
               <p className="text-sm font-semibold text-slate-900">Workspace</p>
-              <p className="text-xs text-slate-500">DIINI Real Estate</p>
+              <p className="text-xs text-slate-500">{agencyName}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-800">
-              DA
+            <div className="flex items-center gap-3">
+              {userEmail ? (
+                <span className="hidden text-xs text-slate-500 sm:inline">{userEmail}</span>
+              ) : null}
+              {logoutAction ? (
+                <form action={logoutAction}>
+                  <button className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" type="submit">
+                    Ka bax
+                  </button>
+                </form>
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-800">DA</div>
+              )}
             </div>
           </div>
 
