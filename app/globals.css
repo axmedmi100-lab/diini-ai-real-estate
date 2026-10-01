@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Keep Tailwind's scanner aware of UI files outside the app directory. */
+@source "../components";
+@source "../lib";
+
 :root {
   color-scheme: light;
 }
