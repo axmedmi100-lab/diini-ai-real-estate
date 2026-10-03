@@ -29,6 +29,14 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    if (error.code === "email_not_confirmed") {
+      loginError("Email-kaaga weli lama xaqiijin. Fur fariinta Supabase ee email-kaaga ku timid, kadib guji link-ga xaqiijinta.");
+    }
+
+    if (error.code === "over_request_rate_limit") {
+      loginError("Isku-dayo badan ayaa dhacay. Sug dhowr daqiiqo kadibna mar kale isku day.");
+    }
+
     loginError("Email ama password-ka waa khalad.");
   }
 

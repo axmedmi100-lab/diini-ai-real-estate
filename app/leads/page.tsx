@@ -1,0 +1,43 @@
+import Link from "next/link";
+
+import { logout } from "@/app/(auth)/actions";
+import { AuthMessage } from "@/components/auth/auth-message";
+import { EmptyState } from "@/components/dashboard/empty-state";
+import { PageHeading } from "@/components/dashboard/page-heading";
+import { AppShell } from "@/components/layout/app-shell";
+import { getAgencyWorkspace } from "@/lib/agency-workspace";
+
+const statuses = ["new", "qualified", "hot", "viewing", "negotiation", "won", "lost"];
+const statusStyles: Record<string, string> = { new: "bg-sky-100 text-sky-800", hot: "bg-rose-100 text-rose-800", qualified: "bg-violet-100 text-violet-800", won: "bg-emerald-100 text-emerald-800", lost: "bg-slate-100 text-slate-600", viewing: "bg-amber-100 text-amber-800", negotiation: "bg-orange-100 text-orange-800" };
+
+export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ error?: string; message?: string; q?: string; status?: string; source?: string }> }) {
+  const { supabase, user, membership, agency } = await getAgencyWorkspace();
+  const params = await searchParams;
+  let query = supabase.from("leads").select("id, name, phone, email, source, purpose, district, budget_min, budget_max, status, created_at").eq("agency_id", agency.id).order("created_at", { ascending: false });
+  if (params.status && statuses.includes(params.status)) query = query.eq("status", params.status);
+  if (params.source) query = query.eq("source", params.source);
+  if (params.q?.trim()) {
+    const safe = params.q.trim().replace(/[,%()]/g, "");
+    query = query.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%,email.ilike.%${safe}%,district.ilike.%${safe}%`);
+  }
+  const [{ data: leads }, { data: allStatuses }] = await Promise.all([query, supabase.from("leads").select("status").eq("agency_id", agency.id)]);
+  const counts = statuses.reduce<Record<string, number>>((result, status) => { result[status] = allStatuses?.filter((lead) => lead.status === status).length ?? 0; return result; }, {});
+  const canCreate = ["owner", "admin", "manager", "agent", "receptionist"].includes(membership.role);
+
+  return (
+    <AppShell agencyName={agency.name} currentPath="/leads" logoutAction={logout} userEmail={user.email}>
+      <div className="mx-auto w-full max-w-7xl space-y-7">
+        <PageHeading eyebrow="Sales pipeline" title="Lead CRM" description="Maamul dadka danaynaya, requirements-kooda iyo marxaladda iibka." action={canCreate ? <Link className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-sm" href="/leads/new">+ Lead cusub</Link> : null} />
+        <AuthMessage error={params.error} message={params.message} />
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">{statuses.map((status) => <Link className={`rounded-2xl border p-4 transition hover:-translate-y-0.5 ${params.status === status ? "border-emerald-400 bg-emerald-50" : "border-slate-200 bg-white"}`} href={params.status === status ? "/leads" : `/leads?status=${status}`} key={status}><p className="text-xs font-bold capitalize text-slate-500">{status}</p><p className="mt-2 text-2xl font-bold text-slate-950">{counts[status]}</p></Link>)}</section>
+        <form className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[1fr_12rem_auto]" method="get"><input className="rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500" defaultValue={params.q} name="q" placeholder="Raadi magac, phone, email ama degmo..." /><select className="rounded-xl border border-slate-300 px-4 py-3 text-sm" defaultValue={params.source ?? ""} name="source"><option value="">Dhammaan sources</option>{["website", "whatsapp", "phone", "facebook", "instagram", "manual", "referral", "other"].map((source) => <option key={source} value={source}>{source}</option>)}</select><button className="rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950">Raadi</button></form>
+        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          {leads?.length ? <>
+            <div className="grid gap-4 p-4 md:hidden">{leads.map((lead) => <article className="rounded-2xl border border-slate-200 p-4" key={lead.id}><Link className="block" href={`/leads/${lead.id}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-bold text-slate-950">{lead.name || "Lead aan magac lahayn"}</h2><p className="mt-1 truncate text-xs text-slate-500">{lead.phone || lead.email || "Xiriir lama gelin"}</p></div><span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold capitalize ${statusStyles[lead.status] ?? "bg-slate-100"}`}>{lead.status}</span></div><div className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><p className="text-slate-400">Source</p><p className="mt-1 font-semibold capitalize text-slate-700">{lead.source}</p></div><div><p className="text-slate-400">Waxa uu rabo</p><p className="mt-1 font-semibold capitalize text-slate-700">{lead.purpose || "—"}{lead.district ? ` · ${lead.district}` : ""}</p></div></div></Link><div className="mt-4 flex gap-2 border-t border-slate-100 pt-4"><Link className="flex-1 rounded-xl bg-emerald-500 px-3 py-2.5 text-center text-sm font-bold text-slate-950" href={`/leads/${lead.id}`}>Fur lead-ka</Link>{canCreate ? <Link className="flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-center text-sm font-bold text-slate-700" href={`/leads/${lead.id}/edit`}>Edit</Link> : null}</div></article>)}</div>
+            <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[800px] text-left"><thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold tracking-wide text-slate-500 uppercase"><tr><th className="px-6 py-4">Lead</th><th className="px-6 py-4">Source</th><th className="px-6 py-4">Waxa uu rabo</th><th className="px-6 py-4">Budget</th><th className="px-6 py-4">Status</th><th className="px-6 py-4">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{leads.map((lead) => <tr className="hover:bg-slate-50" key={lead.id}><td className="px-6 py-4"><Link className="font-semibold text-slate-900 hover:text-emerald-700" href={`/leads/${lead.id}`}>{lead.name || "Lead aan magac lahayn"}</Link><p className="mt-1 text-xs text-slate-500">{lead.phone || lead.email || "Xiriir lama gelin"}</p></td><td className="px-6 py-4 text-sm capitalize text-slate-600">{lead.source}</td><td className="px-6 py-4 text-sm capitalize text-slate-600">{lead.purpose || "—"}{lead.district ? ` · ${lead.district}` : ""}</td><td className="px-6 py-4 text-sm text-slate-600">{lead.budget_min || lead.budget_max ? `$${Number(lead.budget_min ?? 0).toLocaleString()} – $${Number(lead.budget_max ?? 0).toLocaleString()}` : "—"}</td><td className="px-6 py-4"><span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${statusStyles[lead.status] ?? "bg-slate-100"}`}>{lead.status}</span></td><td className="px-6 py-4"><div className="flex items-center gap-3"><Link className="text-sm font-bold text-emerald-700" href={`/leads/${lead.id}`}>Fur</Link>{canCreate ? <Link className="text-sm font-bold text-slate-600" href={`/leads/${lead.id}/edit`}>Edit</Link> : null}</div></td></tr>)}</tbody></table></div>
+          </> : <div className="p-6"><EmptyState title="Lead lama helin" description={params.q || params.status || params.source ? "Filters-ka beddel ama nadiifi si aad leads kale u aragto." : "Guji ‘Lead cusub’ si aad u bilowdo CRM-ka."} /></div>}
+        </section>
+      </div>
+    </AppShell>
+  );
+}
