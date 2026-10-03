@@ -55,6 +55,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ conversationId, messages: messages ?? [], config });
   }
 
+  if (action === "book_viewing") {
+    const conversationId = String(body.conversationId ?? "");
+    const propertyId = String(body.propertyId ?? "");
+    const startsAt = String(body.startsAt ?? "");
+    if (!uuidPattern.test(conversationId) || !uuidPattern.test(propertyId) || !startsAt || Number.isNaN(Date.parse(startsAt))) return bad("Viewing request-ku sax ma aha.");
+    if (Date.parse(startsAt) <= Date.now()) return bad("Dooro waqti mustaqbalka ah.");
+    const { data: viewingId, error } = await supabase.rpc("request_widget_viewing", { target_agency_id: agencyId, target_conversation_id: conversationId, session_token: sessionToken, target_property_id: propertyId, requested_starts_at: startsAt });
+    if (error) {
+      console.error("Widget viewing RPC failed", error);
+      return bad("Viewing-ga lama codsan karin. Hubi property-ga iyo waqtiga.", 400);
+    }
+    return NextResponse.json({ viewingId, message: "Viewing-ga waa la codsaday. Agency-gu wuxuu xaqiijin doonaa waqtiga." });
+  }
+
   if (action !== "message") return bad("Action-ka lama aqoonsan.");
   const conversationId = String(body.conversationId ?? "");
   const message = String(body.message ?? "").trim();

@@ -9,6 +9,7 @@ const navigation = [
   { label: "Leads", href: "/leads", icon: "◎" },
   { label: "AI Chat", href: "/ai-chat", icon: "✦" },
   { label: "Conversations", href: "/conversations", icon: "◌" },
+  { label: "Viewings", href: "/viewings", icon: "◷" },
   { label: "Agents", href: "/agents", icon: "◉" },
   { label: "Settings", href: "/settings", icon: "⚙" },
 ];

@@ -19,7 +19,7 @@ export default async function DashboardPage() {
     { label: "Properties", value: properties.count ?? 0, detail: "Dhammaan listings", href: "/properties", accent: "bg-emerald-100 text-emerald-800" },
     { label: "Leads", value: leads.count ?? 0, detail: "Fursadaha iibka", href: "/leads", accent: "bg-sky-100 text-sky-800" },
     { label: "Agents", value: members.count ?? 0, detail: "Team-ka firfircoon", href: "/agents", accent: "bg-violet-100 text-violet-800" },
-    { label: "Viewings", value: viewings.count ?? 0, detail: "Kuwa soo socda", href: "/dashboard", accent: "bg-amber-100 text-amber-800" },
+    { label: "Viewings", value: viewings.count ?? 0, detail: "Kuwa soo socda", href: "/viewings", accent: "bg-amber-100 text-amber-800" },
   ];
 
   return (
