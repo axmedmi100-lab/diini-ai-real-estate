@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export async function getPlatformAdmin() {
@@ -11,5 +10,5 @@ export async function getPlatformAdmin() {
   const { data: allowed, error } = await supabase.rpc("is_platform_super_admin");
   if (error || !allowed) notFound();
 
-  return { user, admin: createAdminClient() };
+  return { user, supabase };
 }
