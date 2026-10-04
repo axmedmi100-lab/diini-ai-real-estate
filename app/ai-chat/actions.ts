@@ -3,12 +3,13 @@
 import { redirect } from "next/navigation";
 
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
+import { hasAgencyPermission } from "@/lib/permissions";
 
 function text(formData: FormData, name: string) { return String(formData.get(name) ?? "").trim(); }
 
 export async function updateAIChatSettings(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
-  if (!["owner", "admin", "manager"].includes(membership.role)) redirect("/ai-chat?error=Ma lihid oggolaanshaha AI settings-ka.");
+  if (!hasAgencyPermission(membership.role, "manage_ai")) redirect("/ai-chat?error=Ma lihid oggolaanshaha AI settings-ka.");
   const assistantName = text(formData, "assistant_name");
   if (assistantName.length < 2) redirect("/ai-chat?error=Magaca assistant-ku aad buu u gaaban yahay.");
   const { error } = await supabase.from("ai_settings").upsert({

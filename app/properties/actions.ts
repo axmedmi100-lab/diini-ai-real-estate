@@ -4,8 +4,8 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
+import { hasAgencyPermission } from "@/lib/permissions";
 
-const editableRoles = new Set(["owner", "admin", "manager", "agent"]);
 const imageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function text(formData: FormData, name: string) {
@@ -78,7 +78,7 @@ async function uploadImages(supabase: Awaited<ReturnType<typeof getAgencyWorkspa
 
 export async function createProperty(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
-  if (!editableRoles.has(membership.role)) redirect("/properties?error=Ma lihid oggolaanshaha property cusub.");
+  if (!hasAgencyPermission(membership.role, "manage_properties")) redirect("/properties?error=Ma lihid oggolaanshaha property cusub.");
   const payload = propertyPayload(formData);
   const files = imageFiles(formData);
   const errorMessage = validate(payload) || validateImages(files);
@@ -107,7 +107,7 @@ export async function createProperty(formData: FormData) {
 export async function updateProperty(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
   const propertyId = text(formData, "property_id");
-  if (!editableRoles.has(membership.role)) redirect(`/properties/${propertyId}?error=Ma lihid oggolaanshaha edit-ka.`);
+  if (!hasAgencyPermission(membership.role, "manage_properties")) redirect(`/properties/${propertyId}?error=Ma lihid oggolaanshaha edit-ka.`);
   const payload = propertyPayload(formData);
   const files = imageFiles(formData);
   const errorMessage = validate(payload) || validateImages(files);
@@ -143,7 +143,7 @@ export async function updateProperty(formData: FormData) {
 export async function deleteProperty(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
   const propertyId = text(formData, "property_id");
-  if (!["owner", "admin", "manager"].includes(membership.role)) redirect(`/properties/${propertyId}?error=Ma lihid oggolaanshaha delete-ka.`);
+  if (!hasAgencyPermission(membership.role, "delete_properties")) redirect(`/properties/${propertyId}?error=Ma lihid oggolaanshaha delete-ka.`);
   const { error } = await supabase.from("properties").delete().eq("id", propertyId).eq("agency_id", agency.id);
   if (error) redirect(`/properties/${propertyId}?error=Property-ga lama tirtiri karin.`);
   const { data: files } = await supabase.storage.from("property-images").list(`${agency.id}/${propertyId}`);

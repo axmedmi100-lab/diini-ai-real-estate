@@ -31,9 +31,13 @@ export async function getAgencyWorkspace() {
     timezone: string;
     default_language: string;
     default_currency: string;
+    lifecycle_status: "trial" | "active" | "suspended" | "archived";
   } | null;
 
   if (!agency) redirect("/login?error=Agency workspace-ka lama helin.");
+  if (agency.lifecycle_status === "suspended" || agency.lifecycle_status === "archived") {
+    redirect(`/login?error=${encodeURIComponent("Agency account-kan waa la hakiyey. La xiriir DIINI support.")}`);
+  }
 
   return { supabase, user, membership, agency };
 }

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
+import { hasAgencyPermission } from "@/lib/permissions";
 
 function field(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();
@@ -10,7 +11,7 @@ function field(formData: FormData, name: string) {
 
 export async function updateAgency(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
-  if (!["owner", "admin", "manager"].includes(membership.role)) redirect("/settings?error=Ma lihid oggolaanshaha settings-ka.");
+  if (!hasAgencyPermission(membership.role, "manage_agency")) redirect("/settings?error=Ma lihid oggolaanshaha settings-ka.");
 
   const name = field(formData, "name");
   if (name.length < 2) redirect("/settings?error=Magaca agency-gu aad buu u gaaban yahay.");

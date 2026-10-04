@@ -3,14 +3,14 @@
 import { redirect } from "next/navigation";
 
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
+import { hasAgencyPermission } from "@/lib/permissions";
 
-const allowedRoles = new Set(["owner", "admin", "manager", "agent", "receptionist"]);
 const statuses = new Set(["requested", "confirmed", "completed", "cancelled", "no_show"]);
 const value = (formData: FormData, name: string) => String(formData.get(name) ?? "").trim();
 
 export async function createViewing(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
-  if (!allowedRoles.has(membership.role)) redirect("/viewings?error=Ma lihid oggolaanshaha viewing cusub.");
+  if (!hasAgencyPermission(membership.role, "manage_viewings")) redirect("/viewings?error=Ma lihid oggolaanshaha viewing cusub.");
   const leadId = value(formData, "lead_id");
   const propertyId = value(formData, "property_id");
   const agentId = value(formData, "agent_id") || null;
@@ -37,7 +37,7 @@ export async function createViewing(formData: FormData) {
 export async function updateViewing(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
   const viewingId = value(formData, "viewing_id");
-  if (!allowedRoles.has(membership.role)) redirect(`/viewings/${viewingId}?error=Ma lihid oggolaanshaha isbeddelkan.`);
+  if (!hasAgencyPermission(membership.role, "manage_viewings")) redirect(`/viewings/${viewingId}?error=Ma lihid oggolaanshaha isbeddelkan.`);
   const status = value(formData, "status");
   const agentId = value(formData, "agent_id") || null;
   const startsAt = new Date(value(formData, "starts_at"));

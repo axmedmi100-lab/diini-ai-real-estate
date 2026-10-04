@@ -3,8 +3,8 @@
 import { redirect } from "next/navigation";
 
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
+import { hasAgencyPermission } from "@/lib/permissions";
 
-const crmRoles = new Set(["owner", "admin", "manager", "agent", "receptionist"]);
 
 function text(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();
@@ -64,7 +64,7 @@ async function ensureCustomer(supabase: Awaited<ReturnType<typeof getAgencyWorks
 
 export async function createLead(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
-  if (!crmRoles.has(membership.role)) redirect("/leads?error=Ma lihid oggolaanshaha lead cusub.");
+  if (!hasAgencyPermission(membership.role, "manage_crm")) redirect("/leads?error=Ma lihid oggolaanshaha lead cusub.");
   const payload = leadPayload(formData);
   const errorMessage = validateLead(payload);
   if (errorMessage) redirect(`/leads/new?error=${encodeURIComponent(errorMessage)}`);
@@ -85,7 +85,7 @@ export async function createLead(formData: FormData) {
 export async function updateLead(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
   const leadId = text(formData, "lead_id");
-  if (!crmRoles.has(membership.role)) redirect(`/leads/${leadId}?error=Ma lihid oggolaanshaha edit-ka.`);
+  if (!hasAgencyPermission(membership.role, "manage_crm")) redirect(`/leads/${leadId}?error=Ma lihid oggolaanshaha edit-ka.`);
   const payload = leadPayload(formData);
   const errorMessage = validateLead(payload);
   if (errorMessage) redirect(`/leads/${leadId}/edit?error=${encodeURIComponent(errorMessage)}`);
@@ -105,7 +105,7 @@ export async function updateLeadStatus(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
   const leadId = text(formData, "lead_id");
   const status = text(formData, "status");
-  if (!crmRoles.has(membership.role)) redirect(`/leads/${leadId}?error=Ma lihid oggolaanshaha status-ka.`);
+  if (!hasAgencyPermission(membership.role, "manage_crm")) redirect(`/leads/${leadId}?error=Ma lihid oggolaanshaha status-ka.`);
   const allowed = ["new", "qualified", "hot", "viewing", "negotiation", "won", "lost"];
   if (!allowed.includes(status)) redirect(`/leads/${leadId}?error=Status-ku sax ma aha.`);
   const { error } = await supabase.from("leads").update({ status }).eq("id", leadId).eq("agency_id", agency.id);
@@ -116,7 +116,7 @@ export async function updateLeadStatus(formData: FormData) {
 export async function deleteLead(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
   const leadId = text(formData, "lead_id");
-  if (!["owner", "admin", "manager"].includes(membership.role)) redirect(`/leads/${leadId}?error=Ma lihid oggolaanshaha delete-ka.`);
+  if (!hasAgencyPermission(membership.role, "delete_leads")) redirect(`/leads/${leadId}?error=Ma lihid oggolaanshaha delete-ka.`);
   const { error } = await supabase.from("leads").delete().eq("id", leadId).eq("agency_id", agency.id);
   if (error) redirect(`/leads/${leadId}?error=Lead-ka lama tirtiri karin.`);
   redirect("/leads?message=Lead-ka waa la tirtiray.");

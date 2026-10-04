@@ -43,7 +43,7 @@ function fallbackExtraction(message: string): ChatRequirements {
 }
 
 export async function extractChatRequirements(message: string, recentMessages: Array<{ sender_type: string; message: string }>) {
-  if (!process.env.OPENAI_API_KEY) return { data: fallbackExtraction(message), usedAI: false };
+  if (!process.env.OPENAI_API_KEY) return { data: fallbackExtraction(message), usedAI: false, usage: { inputTokens: 0, outputTokens: 0 } };
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const response = await client.responses.create({
     model: process.env.OPENAI_MODEL || "gpt-6-luna",
@@ -78,7 +78,11 @@ export async function extractChatRequirements(message: string, recentMessages: A
       },
     },
   });
-  return { data: JSON.parse(response.output_text) as ChatRequirements, usedAI: true };
+  return {
+    data: JSON.parse(response.output_text) as ChatRequirements,
+    usedAI: true,
+    usage: { inputTokens: response.usage?.input_tokens ?? 0, outputTokens: response.usage?.output_tokens ?? 0 },
+  };
 }
 
 export function formatPropertyReply(language: "so" | "en", count: number) {

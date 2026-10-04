@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createPublicClient } from "@/lib/supabase/public";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -75,6 +76,18 @@ export async function POST(request: Request) {
   if (!uuidPattern.test(conversationId) || !message || message.length > 2000) return bad("Fariintu sax ma aha.");
   const { data: history, error: historyError } = await supabase.rpc("get_widget_messages", { target_agency_id: agencyId, target_conversation_id: conversationId, session_token: sessionToken });
   if (historyError) return bad("Conversation-ka lama xaqiijin.", 403);
+  const { data: conversationStatus, error: stateError } = await supabase.rpc("get_widget_conversation_state", { target_agency_id: agencyId, target_conversation_id: conversationId, session_token: sessionToken });
+  if (stateError || !conversationStatus) return bad("Conversation-ka lama xaqiijin.", 403);
+  if (conversationStatus === "human_active") {
+    const { error: customerMessageError } = await supabase.rpc("append_widget_customer_message", {
+      target_agency_id: agencyId,
+      target_conversation_id: conversationId,
+      session_token: sessionToken,
+      customer_message: message,
+    });
+    if (customerMessageError) return bad("Fariinta lama kaydin.", 500);
+    return NextResponse.json({ message: null, properties: [], usedAI: false, humanHandoff: true, aiPaused: true });
+  }
 
   let extraction;
   try {
@@ -138,6 +151,18 @@ export async function POST(request: Request) {
     customer_message: message,
     assistant_message: assistantMessage,
   });
-  if (saveError) return bad("Fariinta lama kaydin.", 500);
+  if (saveError) return bad("AI-ga conversation-kan waa la hakiyey ama fariinta lama kaydin.", 409);
+  if (extraction.usedAI) {
+    try {
+      const { error: usageError } = await createAdminClient().rpc("record_ai_usage", {
+        target_agency_id: agencyId,
+        input_token_count: extraction.usage.inputTokens,
+        output_token_count: extraction.usage.outputTokens,
+      });
+      if (usageError) console.error("AI usage metering failed", usageError);
+    } catch (usageError) {
+      console.error("AI usage metering unavailable", usageError);
+    }
+  }
   return NextResponse.json({ message: assistantMessage, properties, usedAI: extraction.usedAI, humanHandoff: requirement.human_handoff });
 }
