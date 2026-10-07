@@ -4,6 +4,18 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseConfig } from "./config";
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const isPublicAuthRoute =
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname.startsWith("/auth/");
+
+  // Public auth pages must remain usable even when Supabase is temporarily
+  // unreachable. The login/signup actions make their own authenticated call.
+  if (isPublicAuthRoute) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
   const { url, publishableKey } = getSupabaseConfig();
 
@@ -29,13 +41,6 @@ export async function updateSession(request: NextRequest) {
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("message", "Fadlan marka hore gal account-kaaga.");
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (user && ["/login", "/signup"].includes(request.nextUrl.pathname)) {
-    const dashboardUrl = request.nextUrl.clone();
-    dashboardUrl.pathname = "/dashboard";
-    dashboardUrl.search = "";
-    return NextResponse.redirect(dashboardUrl);
   }
 
   return response;

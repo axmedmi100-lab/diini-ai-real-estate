@@ -29,6 +29,10 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    if (error.status === 0 || error.name === "AuthRetryableFetchError") {
+      loginError("Supabase lama xiriiri karo hadda. Hubi internet-ka, kadibna mar kale isku day.");
+    }
+
     if (error.code === "email_not_confirmed") {
       loginError("Email-kaaga weli lama xaqiijin. Fur fariinta Supabase ee email-kaaga ku timid, kadib guji link-ga xaqiijinta.");
     }
@@ -40,7 +44,8 @@ export async function login(formData: FormData) {
     loginError("Email ama password-ka waa khalad.");
   }
 
-  redirect("/dashboard");
+  const { data: isPlatformAdmin } = await supabase.rpc("is_platform_super_admin");
+  redirect(isPlatformAdmin ? "/admin" : "/dashboard");
 }
 
 export async function signup(formData: FormData) {

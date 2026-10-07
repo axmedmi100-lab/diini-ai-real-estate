@@ -33,6 +33,7 @@ function leadPayload(formData: FormData) {
     bedrooms: numberOrNull(formData, "bedrooms"),
     property_type: text(formData, "property_type") || null,
     furnished: text(formData, "furnished") === "any" ? null : formData.get("furnished") === "true",
+    timeline: text(formData, "timeline") || null,
     status: text(formData, "status") || "new",
     assigned_agent_id: text(formData, "assigned_agent_id") || null,
     notes: text(formData, "notes") || null,
@@ -102,15 +103,22 @@ export async function updateLead(formData: FormData) {
 }
 
 export async function updateLeadStatus(formData: FormData) {
-  const { supabase, membership, agency } = await getAgencyWorkspace();
+  const { supabase, user, membership, agency } = await getAgencyWorkspace();
   const leadId = text(formData, "lead_id");
   const status = text(formData, "status");
   if (!hasAgencyPermission(membership.role, "manage_crm")) redirect(`/leads/${leadId}?error=Ma lihid oggolaanshaha status-ka.`);
   const allowed = ["new", "qualified", "hot", "viewing", "negotiation", "won", "lost"];
   if (!allowed.includes(status)) redirect(`/leads/${leadId}?error=Status-ku sax ma aha.`);
+  const { data: current } = await supabase.from("leads").select("status").eq("id", leadId).eq("agency_id", agency.id).maybeSingle();
+  if (!current) redirect("/leads?error=Lead-ka lama helin.");
   const { error } = await supabase.from("leads").update({ status }).eq("id", leadId).eq("agency_id", agency.id);
   if (error) redirect(`/leads/${leadId}?error=Status-ka lama beddeli karin.`);
-  redirect(`/leads/${leadId}?message=Status-ka waa la beddelay.`);
+  await supabase.from("audit_logs").insert({ agency_id: agency.id, user_id: user.id, action: "lead.status_changed", entity_type: "lead", entity_id: leadId, metadata: { from: current.status, to: status } });
+  if (status === "hot" && current.status !== "hot") {
+    await supabase.from("notifications").insert({ agency_id: agency.id, type: "hot_lead", title: "🔥 Hot lead", body: "Lead ayaa loo beddelay HOT. La xiriir sida ugu dhaqsaha badan.", entity_type: "lead", entity_id: leadId });
+  }
+  const referer = String(formData.get("return_to") ?? "");
+  redirect(referer === "/leads?view=pipeline" ? "/leads?view=pipeline&message=Status-ka waa la beddelay." : `/leads/${leadId}?message=Status-ka waa la beddelay.`);
 }
 
 export async function deleteLead(formData: FormData) {

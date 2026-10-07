@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { AuthHashHandler } from "@/components/auth/auth-hash-handler";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +17,10 @@ type RootLayoutProps = Readonly<{
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body className="bg-slate-50 text-slate-950 antialiased">{children}</body>
+      <body className="bg-slate-50 text-slate-950 antialiased">
+        <AuthHashHandler />
+        {children}
+      </body>
     </html>
   );
 }

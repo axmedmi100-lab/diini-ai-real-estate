@@ -8,9 +8,12 @@ const navigation = [
   { label: "Properties", href: "/properties", icon: "⌂" },
   { label: "Leads", href: "/leads", icon: "◎" },
   { label: "AI Chat", href: "/ai-chat", icon: "✦" },
+  { label: "Integrations", href: "/integrations", icon: "◇" },
   { label: "Conversations", href: "/conversations", icon: "◌" },
   { label: "Viewings", href: "/viewings", icon: "◷" },
   { label: "Follow-ups", href: "/follow-ups", icon: "↻" },
+  { label: "Notifications", href: "/notifications", icon: "●" },
+  { label: "Plan & Usage", href: "/usage", icon: "▥" },
   { label: "Agents", href: "/agents", icon: "◉" },
   { label: "Settings", href: "/settings", icon: "⚙" },
 ];

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createPublicClient } from "@/lib/supabase/public";
+import { estimateAiCostUsd } from "@/lib/usage/ai-cost";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const requests = new Map<string, { count: number; resetAt: number }>();
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
 
   let extraction;
   try {
-    extraction = await extractChatRequirements(message, history ?? []);
+    extraction = await extractChatRequirements(message, history ?? [], { supportedLanguages: config.supported_languages, qualificationFields: config.qualification_fields, businessRules: config.business_rules });
   } catch {
     extraction = await extractChatRequirements(message, []);
   }
@@ -135,6 +136,7 @@ export async function POST(request: Request) {
       wanted_property_type: requirement.property_type,
       wanted_furnished: requirement.furnished,
     });
+    if (requirement.timeline) await supabase.rpc("set_widget_lead_timeline", { target_agency_id: agencyId, target_conversation_id: conversationId, session_token: sessionToken, wanted_timeline: requirement.timeline });
   }
   if (requirement.human_handoff && config.human_handoff_enabled) {
     const { error: handoffError } = await supabase.rpc("request_widget_handoff", {
@@ -158,6 +160,7 @@ export async function POST(request: Request) {
         target_agency_id: agencyId,
         input_token_count: extraction.usage.inputTokens,
         output_token_count: extraction.usage.outputTokens,
+        estimated_cost: estimateAiCostUsd(extraction.usage.inputTokens, extraction.usage.outputTokens),
       });
       if (usageError) console.error("AI usage metering failed", usageError);
     } catch (usageError) {

@@ -16,7 +16,11 @@ export async function getAgencyWorkspace() {
     .limit(1)
     .maybeSingle();
 
-  if (error || !membership) redirect("/login?error=Agency workspace-ka lama helin.");
+  if (error || !membership) {
+    const { data: isPlatformAdmin } = await supabase.rpc("is_platform_super_admin");
+    if (isPlatformAdmin) redirect("/admin");
+    redirect("/login?error=Agency workspace-ka lama helin.");
+  }
 
   const relation = membership.agencies as Record<string, unknown> | Record<string, unknown>[] | null;
   const agency = (Array.isArray(relation) ? relation[0] : relation) as {
@@ -31,6 +35,7 @@ export async function getAgencyWorkspace() {
     timezone: string;
     default_language: string;
     default_currency: string;
+    plan_code: "starter" | "pro" | "enterprise";
     lifecycle_status: "trial" | "active" | "suspended" | "archived";
   } | null;
 
