@@ -9,7 +9,8 @@ export type AgencyPermission =
   | "manage_crm"
   | "delete_leads"
   | "manage_viewings"
-  | "manage_conversations";
+  | "manage_conversations"
+  | "assign_conversations";
 
 const permissions: Record<AgencyPermission, ReadonlySet<AgencyRole>> = {
   manage_agency: new Set(["owner", "admin", "manager"]),
@@ -22,6 +23,7 @@ const permissions: Record<AgencyPermission, ReadonlySet<AgencyRole>> = {
   delete_leads: new Set(["owner", "admin", "manager"]),
   manage_viewings: new Set(["owner", "admin", "manager", "agent", "receptionist"]),
   manage_conversations: new Set(["owner", "admin", "manager", "agent", "receptionist"]),
+  assign_conversations: new Set(["owner", "admin", "manager"]),
 };
 
 export function hasAgencyPermission(role: string, permission: AgencyPermission) {
