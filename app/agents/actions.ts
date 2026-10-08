@@ -28,3 +28,17 @@ export async function setAvailability(formData: FormData) {
   if (error) redirect("/agents?error=Availability-ga lama beddeli karin.");
   revalidatePath("/agents");
 }
+
+export async function setMemberAvailability(formData: FormData) {
+  const { supabase } = await getAgencyWorkspace();
+  const memberId = value(formData, "member_id");
+  const availability = value(formData, "availability");
+  if (!memberId) redirect("/agents?error=Agent-ka lama aqoonsan.");
+  const { error } = await supabase.rpc("set_agency_member_availability", {
+    target_member_id: memberId,
+    new_availability: availability,
+  });
+  if (error) redirect("/agents?error=Xaaladda agent-ka lama beddeli karin.");
+  revalidatePath("/agents");
+  redirect("/agents?message=Xaaladda agent-ka waa la cusboonaysiiyey.");
+}
