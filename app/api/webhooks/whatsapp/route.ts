@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
+import { contentLengthExceeds, logServerEvent, MAX_WEBHOOK_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { estimateAiCostUsd } from "@/lib/usage/ai-cost";
 import { sendWhatsAppText, verifyMetaSignature } from "@/lib/whatsapp/meta";
@@ -19,8 +20,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const id = requestId(request);
+  if (contentLengthExceeds(request, MAX_WEBHOOK_BYTES)) return new NextResponse("Payload too large", { status: 413, headers: { "X-Request-Id": id } });
   const rawBody = await request.text();
-  if (!verifyMetaSignature(rawBody, request.headers.get("x-hub-signature-256"))) return new NextResponse("Invalid signature", { status: 401 });
+  if (Buffer.byteLength(rawBody, "utf8") > MAX_WEBHOOK_BYTES) return new NextResponse("Payload too large", { status: 413, headers: { "X-Request-Id": id } });
+  if (!verifyMetaSignature(rawBody, request.headers.get("x-hub-signature-256"))) {
+    logServerEvent("warn", "whatsapp.invalid_signature", { requestId: id });
+    return new NextResponse("Invalid signature", { status: 401, headers: { "X-Request-Id": id } });
+  }
   let payload: MetaPayload;
   try { payload = JSON.parse(rawBody) as MetaPayload; } catch { return new NextResponse("Invalid JSON", { status: 400 }); }
   const value = payload.entry?.[0]?.changes?.find((change) => change.field === "messages")?.value;
@@ -38,6 +45,11 @@ export async function POST(request: Request) {
   if (eventError) return new NextResponse("Event persistence failed", { status: 500 });
 
   const phone = normalizePhone(incoming.from);
+  const { data: allowed } = await supabase.rpc("consume_api_rate_limit", { limit_bucket: "whatsapp_inbound", identity_value: `${agencyId}:${phone}`, maximum_requests: 60, window_seconds: 60 });
+  if (!allowed) {
+    logServerEvent("warn", "whatsapp.rate_limited", { requestId: id, agencyId });
+    return NextResponse.json({ received: true, rateLimited: true }, { headers: { "X-Request-Id": id } });
+  }
   const customerName = value?.contacts?.[0]?.profile?.name?.trim() || null;
   let { data: customer } = await supabase.from("customers").select("id,name").eq("agency_id", agencyId).eq("normalized_phone", phone).maybeSingle();
   if (!customer) {

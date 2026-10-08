@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 
 import { encryptIntegrationSecret } from "@/lib/security/integration-secret";
+import { apiError, contentLengthExceeds, MAX_JSON_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const idPattern = /^\d{5,30}$/;
 
 export async function POST(request: Request) {
+  const id = requestId(request);
+  if (contentLengthExceeds(request, MAX_JSON_BYTES)) return apiError("Request-ku aad ayuu u weyn yahay.", 413, id);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Fadlan marka hore gal account-kaaga." }, { status: 401 });
@@ -25,14 +28,14 @@ export async function POST(request: Request) {
   tokenUrl.searchParams.set("client_id", appId);
   tokenUrl.searchParams.set("client_secret", appSecret);
   tokenUrl.searchParams.set("code", body.code);
-  const tokenResponse = await fetch(tokenUrl, { method: "GET", cache: "no-store" });
+  const tokenResponse = await fetch(tokenUrl, { method: "GET", cache: "no-store", signal: AbortSignal.timeout(15_000) });
   const tokenPayload = await tokenResponse.json() as { access_token?: string; error?: { message?: string } };
   if (!tokenResponse.ok || !tokenPayload.access_token) return NextResponse.json({ error: tokenPayload.error?.message || "Meta authorization code lama beddeli karin." }, { status: 400 });
   const token = tokenPayload.access_token;
 
-  const subscribe = await fetch(`https://graph.facebook.com/${version}/${body.wabaId}/subscribed_apps`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+  const subscribe = await fetch(`https://graph.facebook.com/${version}/${body.wabaId}/subscribed_apps`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000) });
   if (!subscribe.ok) return NextResponse.json({ error: "DIINI app-ka WABA webhook looma subscribe-gareyn." }, { status: 400 });
-  const profileResponse = await fetch(`https://graph.facebook.com/${version}/${body.phoneNumberId}?fields=display_phone_number,verified_name`, { headers: { Authorization: `Bearer ${token}` } });
+  const profileResponse = await fetch(`https://graph.facebook.com/${version}/${body.phoneNumberId}?fields=display_phone_number,verified_name`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000) });
   const profile = await profileResponse.json() as { display_phone_number?: string; verified_name?: string };
   if (!profileResponse.ok) return NextResponse.json({ error: "WhatsApp phone profile lama xaqiijin karin." }, { status: 400 });
 

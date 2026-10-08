@@ -1,51 +1,45 @@
 import { NextResponse } from "next/server";
 
 import { extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
+import { apiError, contentLengthExceeds, logServerEvent, MAX_JSON_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createPublicClient } from "@/lib/supabase/public";
 import { estimateAiCostUsd } from "@/lib/usage/ai-cost";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const requests = new Map<string, { count: number; resetAt: number }>();
-
-function bad(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status });
-}
-
-function rateLimited(token: string) {
-  const now = Date.now();
-  const current = requests.get(token);
-  if (!current || current.resetAt < now) {
-    requests.set(token, { count: 1, resetAt: now + 60_000 });
-    return false;
-  }
-  current.count += 1;
-  return current.count > 30;
-}
+function bad(message: string, status = 400, id = "unknown") { return apiError(message, status, id); }
 
 export async function GET(request: Request) {
+  const id = requestId(request);
   const agencyId = new URL(request.url).searchParams.get("agencyId") ?? "";
-  if (!uuidPattern.test(agencyId)) return bad("Agency ID-ga sax ma aha.");
+  if (!uuidPattern.test(agencyId)) return bad("Agency ID-ga sax ma aha.", 400, id);
   const supabase = createPublicClient();
   const { data, error } = await supabase.rpc("get_widget_config", { target_agency_id: agencyId });
-  if (error || !data) return bad("Agency widget-ka lama helin.", 404);
-  return NextResponse.json(data, { headers: { "Cache-Control": "public, max-age=60" } });
+  if (error || !data) return bad("Agency widget-ka lama helin.", 404, id);
+  return NextResponse.json(data, { headers: { "Cache-Control": "public, max-age=60", "X-Request-Id": id } });
 }
 
 export async function POST(request: Request) {
+  const id = requestId(request);
+  if (contentLengthExceeds(request, MAX_JSON_BYTES)) return bad("Request-ku aad ayuu u weyn yahay.", 413, id);
   let body: Record<string, unknown>;
-  try { body = await request.json(); } catch { return bad("Request-ku JSON sax ah ma aha."); }
+  try { body = await request.json(); } catch { return bad("Request-ku JSON sax ah ma aha.", 400, id); }
   const action = String(body.action ?? "");
   const agencyId = String(body.agencyId ?? "");
   const sessionToken = String(body.sessionToken ?? "");
-  if (!uuidPattern.test(agencyId) || !uuidPattern.test(sessionToken)) return bad("Widget session-ka sax ma aha.");
-  if (rateLimited(sessionToken)) return bad("Fariimo badan ayaa la diray. Sug hal daqiiqo.", 429);
+  if (!uuidPattern.test(agencyId) || !uuidPattern.test(sessionToken)) return bad("Widget session-ka sax ma aha.", 400, id);
   const supabase = createPublicClient();
+  const { data: allowed, error: limitError } = await supabase.rpc("consume_api_rate_limit", { limit_bucket: "widget_chat", identity_value: `${agencyId}:${sessionToken}`, maximum_requests: 30, window_seconds: 60 });
+  if (limitError) {
+    logServerEvent("error", "widget.rate_limit_failed", { requestId: id, code: limitError.code });
+    return bad("Adeegga si ku-meel-gaar ah looma heli karo.", 503, id);
+  }
+  if (!allowed) return bad("Fariimo badan ayaa la diray. Sug hal daqiiqo.", 429, id);
 
   const { data: config, error: configError } = await supabase.rpc("get_widget_config", { target_agency_id: agencyId });
   if (configError || !config) {
-    console.error("Widget config RPC failed", configError);
-    return bad("Agency widget-ka lama helin.", 404);
+    logServerEvent("warn", "widget.config_not_found", { requestId: id, agencyId });
+    return bad("Agency widget-ka lama helin.", 404, id);
   }
   if (!config.is_enabled) return bad("AI chat-ka agency-gan weli lama hawlgelin.", 403);
 

@@ -55,7 +55,7 @@ export function AppShell({ children, currentPath, agencyName = "DIINI Real Estat
         </div>
       </aside>
 
-      <div className="flex min-h-screen min-w-0 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden">
         <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur">
           <div className="flex min-h-18 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
             <div className="lg:hidden"><Brand /></div>
@@ -74,7 +74,7 @@ export function AppShell({ children, currentPath, agencyName = "DIINI Real Estat
             </ul>
           </nav>
         </header>
-        <main className="flex flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="flex min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

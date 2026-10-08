@@ -10,8 +10,8 @@ export function verifyMetaSignature(rawBody: string, signature: string | null) {
   if (!secret || !signature?.startsWith("sha256=")) return false;
   const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
   const received = signature.slice(7);
-  if (expected.length !== received.length) return false;
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(received));
+  if (!/^[0-9a-f]{64}$/i.test(received) || expected.length !== received.length) return false;
+  return timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(received, "hex"));
 }
 
 export async function getWhatsAppIntegration(agencyId: string) {
@@ -35,6 +35,7 @@ export async function sendWhatsAppText(agencyId: string, to: string, body: strin
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, type: "text", text: { preview_url: false, body } }),
+    signal: AbortSignal.timeout(15_000),
   });
   const payload = await response.json() as { messages?: Array<{ id: string }>; error?: { message?: string } };
   if (!response.ok || !payload.messages?.[0]?.id) throw new Error(payload.error?.message || "Meta message send failed.");

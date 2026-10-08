@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { logServerEvent, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsAppText } from "@/lib/whatsapp/meta";
 
@@ -20,12 +21,16 @@ function authorized(request: Request) {
 function retryDelay(attempt: number) { return [5, 15, 60, 240][Math.min(Math.max(attempt - 1, 0), 3)]; }
 
 async function runWorker(request: Request) {
-  if (!authorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const id = requestId(request);
+  if (!authorized(request)) {
+    logServerEvent("warn", "follow_up_worker.unauthorized", { requestId: id });
+    return NextResponse.json({ error: "Unauthorized", requestId: id }, { status: 401, headers: { "X-Request-Id": id } });
+  }
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("claim_due_follow_ups", { batch_limit: 100 });
   if (error) {
-    console.error("Follow-up claim failed", error.message);
-    return NextResponse.json({ error: "Follow-up claim failed" }, { status: 500 });
+    logServerEvent("error", "follow_up_worker.claim_failed", { requestId: id, code: error.code });
+    return NextResponse.json({ error: "Follow-up claim failed", requestId: id }, { status: 500, headers: { "X-Request-Id": id } });
   }
 
   const summary = { claimed: data?.length ?? 0, sent: 0, retried: 0, failed: 0, opted_out: 0 };
@@ -60,11 +65,12 @@ async function runWorker(request: Request) {
     } catch (deliveryError) {
       const message = deliveryError instanceof Error ? deliveryError.message : "Delivery failed";
       const { data: nextStatus, error: failureError } = await supabase.rpc("fail_follow_up_delivery", { target_follow_up_id: item.id, failure_message: message, retry_delay_minutes: retryDelay(item.attempt_count) });
-      if (failureError) console.error("Follow-up failure state could not be saved", { followUpId: item.id, error: failureError.message });
+      if (failureError) logServerEvent("error", "follow_up_worker.failure_state_failed", { requestId: id, followUpId: item.id, code: failureError.code });
       if (nextStatus === "failed") summary.failed += 1; else summary.retried += 1;
     }
   }
-  return NextResponse.json({ ok: true, result: summary });
+  logServerEvent("info", "follow_up_worker.completed", { requestId: id, ...summary });
+  return NextResponse.json({ ok: true, result: summary, requestId: id }, { headers: { "X-Request-Id": id } });
 }
 
 export async function GET(request: Request) { return runWorker(request); }
