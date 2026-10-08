@@ -48,6 +48,14 @@ export async function cancelFollowUp(formData: FormData) {
   redirect("/follow-ups?message=Follow-up-ka waa la cancel-gareeyey.");
 }
 
+export async function retryFollowUp(formData: FormData) {
+  const { supabase, membership, agency } = await getAgencyWorkspace();
+  if (!hasAgencyPermission(membership.role, "manage_crm")) redirect("/follow-ups?error=Ma lihid oggolaanshaha retry-ga.");
+  const { error } = await supabase.rpc("retry_failed_follow_up", { target_follow_up_id: text(formData, "follow_up_id"), target_agency_id: agency.id });
+  if (error) redirect("/follow-ups?view=failed&error=Follow-up-ka dib looma safi karin.");
+  redirect("/follow-ups?view=scheduled&message=Follow-up-ka dib ayaa safka loo geliyey.");
+}
+
 export async function setCustomerOptOut(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
   if (!hasAgencyPermission(membership.role, "manage_crm")) redirect("/follow-ups?error=Ma lihid oggolaanshahan.");
