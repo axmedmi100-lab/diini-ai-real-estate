@@ -24,16 +24,16 @@ export default async function IntegrationsPage() {
 
   return (
     <AppShell agencyName={agency.name} currentPath="/integrations" logoutAction={logout} userEmail={user.email}>
-      <div className="mx-auto w-full max-w-7xl space-y-8">
+      <div className="mx-auto w-full max-w-[1400px] space-y-8">
         <PageHeading eyebrow="Channels & connections" title="Integrations" description="Hal meel ka eeg xaaladda channels-ka agency-ga. Xiriirrada mustaqbalka si cad ayaa loo kala saaray." />
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {catalog.map((item) => {
             const stored = states.get(item.provider);
             const connected = item.provider === "website_ai" ? Boolean(ai?.is_enabled) : stored?.status === "connected";
-            return <article className="flex min-h-64 flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" key={item.provider}>
-              <div className="flex items-start justify-between gap-4"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-950 text-xl text-white">{item.name.slice(0, 1)}</div><span className={`rounded-full px-3 py-1 text-xs font-bold ${connected ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{connected ? "Connected" : "Not connected"}</span></div>
+            return <article className="diini-lift flex min-h-64 flex-col rounded-[1.6rem] border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,.03)] hover:border-emerald-200 hover:shadow-[0_16px_40px_rgba(15,23,42,.08)]" key={item.provider}>
+              <div className="flex items-start justify-between gap-4"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#08111f] text-lg font-black text-emerald-400 shadow-lg shadow-slate-900/10">{item.name.slice(0, 1)}</div><span className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide ${connected ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}><span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500" : "bg-slate-400"}`}/>{connected ? "Connected" : "Not connected"}</span></div>
               <h2 className="mt-5 text-xl font-black text-slate-950">{item.name}</h2><p className="mt-2 text-sm leading-6 text-slate-500">{item.description}</p>
-              <div className="mt-auto pt-6">{item.available ? <Link className="inline-flex rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white" href={item.provider === "whatsapp" ? "/integrations/whatsapp" : "/ai-chat"}>{connected ? "Manage settings" : item.provider === "whatsapp" ? "Connect WhatsApp" : "Set up Website AI"}</Link> : <button className="cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-400" disabled>Coming soon</button>}</div>
+              <div className="mt-auto pt-6">{item.available ? <Link className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-600" href={item.provider === "whatsapp" ? "/integrations/whatsapp" : "/ai-chat"}>{connected ? "Manage settings" : item.provider === "whatsapp" ? "Connect WhatsApp" : "Set up Website AI"}<span>→</span></Link> : <button className="cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-400" disabled>Coming soon</button>}</div>
             </article>;
           })}
         </div>
@@ -41,3 +41,4 @@ export default async function IntegrationsPage() {
     </AppShell>
   );
 }
+
