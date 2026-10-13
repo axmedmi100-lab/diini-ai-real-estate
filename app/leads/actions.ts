@@ -15,11 +15,6 @@ function numberOrNull(formData: FormData, name: string) {
   return value === "" ? null : Number(value);
 }
 
-function normalizePhone(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  return digits || null;
-}
-
 function leadPayload(formData: FormData) {
   return {
     name: text(formData, "name") || null,
@@ -48,38 +43,14 @@ function validateLead(payload: ReturnType<typeof leadPayload>) {
   return null;
 }
 
-async function ensureCustomer(supabase: Awaited<ReturnType<typeof getAgencyWorkspace>>["supabase"], agencyId: string, payload: ReturnType<typeof leadPayload>, currentCustomerId?: string | null) {
-  const normalizedPhone = payload.phone ? normalizePhone(payload.phone) : null;
-  if (currentCustomerId) {
-    await supabase.from("customers").update({ name: payload.name, phone: payload.phone, normalized_phone: normalizedPhone, email: payload.email }).eq("id", currentCustomerId).eq("agency_id", agencyId);
-    return { id: currentCustomerId, created: false };
-  }
-  if (normalizedPhone) {
-    const { data: existing } = await supabase.from("customers").select("id").eq("agency_id", agencyId).eq("normalized_phone", normalizedPhone).maybeSingle();
-    if (existing) return { id: existing.id, created: false };
-  }
-  const { data: customer, error } = await supabase.from("customers").insert({ agency_id: agencyId, name: payload.name, phone: payload.phone, normalized_phone: normalizedPhone, email: payload.email }).select("id").single();
-  if (error) throw error;
-  return { id: customer.id, created: true };
-}
-
 export async function createLead(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
   if (!hasAgencyPermission(membership.role, "manage_crm")) redirect("/leads?error=Ma lihid oggolaanshaha lead cusub.");
   const payload = leadPayload(formData);
   const errorMessage = validateLead(payload);
   if (errorMessage) redirect(`/leads/new?error=${encodeURIComponent(errorMessage)}`);
-  let customer: { id: string; created: boolean };
-  try {
-    customer = await ensureCustomer(supabase, agency.id, payload);
-  } catch {
-    redirect("/leads/new?error=Customer-ka lama kaydin.");
-  }
-  const { data: lead, error } = await supabase.from("leads").insert({ agency_id: agency.id, customer_id: customer.id, ...payload }).select("id").single();
-  if (error) {
-    if (customer.created) await supabase.from("customers").delete().eq("id", customer.id).eq("agency_id", agency.id);
-    redirect("/leads/new?error=Lead-ka lama kaydin. Hubi xogta.");
-  }
+  const { data: lead, error } = await supabase.from("leads").insert({ agency_id: agency.id, ...payload }).select("id").single();
+  if (error) redirect("/leads/new?error=Lead-ka lama kaydin. Hubi xogta.");
   redirect(`/leads/${lead.id}?message=Lead-ka waa la abuuray.`);
 }
 
@@ -92,14 +63,40 @@ export async function updateLead(formData: FormData) {
   if (errorMessage) redirect(`/leads/${leadId}/edit?error=${encodeURIComponent(errorMessage)}`);
   const { data: current } = await supabase.from("leads").select("customer_id").eq("id", leadId).eq("agency_id", agency.id).maybeSingle();
   if (!current) redirect("/leads?error=Lead-ka lama helin.");
-  try {
-    const customer = await ensureCustomer(supabase, agency.id, payload, current.customer_id);
-    const { error } = await supabase.from("leads").update({ ...payload, customer_id: customer.id }).eq("id", leadId).eq("agency_id", agency.id);
-    if (error) throw error;
-  } catch {
-    redirect(`/leads/${leadId}/edit?error=Isbeddelka lama kaydin.`);
+  const { error } = await supabase.from("leads").update(payload).eq("id", leadId).eq("agency_id", agency.id);
+  if (error) redirect(`/leads/${leadId}/edit?error=Isbeddelka lama kaydin.`);
+  if (current.customer_id) {
+    const normalizedPhone = payload.phone?.replace(/\D/g, "") || null;
+    await supabase.from("customers").update({ name: payload.name, phone: payload.phone, normalized_phone: normalizedPhone, email: payload.email }).eq("id", current.customer_id).eq("agency_id", agency.id);
   }
   redirect(`/leads/${leadId}?message=Lead-ka waa la cusboonaysiiyey.`);
+}
+
+export async function createPropertyTransaction(formData: FormData) {
+  const { supabase, membership, agency } = await getAgencyWorkspace();
+  const leadId = text(formData, "lead_id");
+  if (!hasAgencyPermission(membership.role, "manage_crm")) redirect(`/leads/${leadId}?error=Ma lihid oggolaanshaha transaction-ka.`);
+  const totalPrice = numberOrNull(formData, "total_price");
+  const deposit = numberOrNull(formData, "deposit") ?? 0;
+  const transactionType = text(formData, "transaction_type");
+  const transactionStatus = text(formData, "transaction_status") || "pending";
+  if (!leadId || !["buy", "rent", "reserve", "deposit"].includes(transactionType)) redirect(`/leads/${leadId}?error=Transaction type-ku sax ma aha.`);
+  if (totalPrice === null || !Number.isFinite(totalPrice) || totalPrice < 0 || !Number.isFinite(deposit) || deposit < 0 || deposit > totalPrice) redirect(`/leads/${leadId}?error=Qiimaha ama deposit-ku sax ma aha.`);
+  if (transactionType === "deposit" && deposit <= 0) redirect(`/leads/${leadId}?error=Deposit transaction-ku wuxuu u baahan yahay lacag deposit ah.`);
+  if (!["pending", "completed"].includes(transactionStatus)) redirect(`/leads/${leadId}?error=Transaction status-ku sax ma aha.`);
+  const { data, error } = await supabase.rpc("create_property_transaction", {
+    target_lead_id: leadId,
+    target_property_id: text(formData, "property_id"),
+    target_transaction_type: transactionType,
+    target_total_price: totalPrice,
+    target_deposit: deposit,
+    target_transaction_date: text(formData, "transaction_date"),
+    target_status: transactionStatus,
+    target_assigned_agent_id: text(formData, "assigned_agent_id") || null,
+    target_notes: text(formData, "transaction_notes") || null,
+  });
+  if (error || !data) redirect(`/leads/${leadId}?error=${encodeURIComponent(error?.message || "Transaction-ka lama kaydin.")}`);
+  redirect(`/customers/${data}?message=Lead-ka Customer ayaa loo beddelay, transaction-kana waa la kaydiyey.`);
 }
 
 export async function updateLeadStatus(formData: FormData) {
@@ -129,3 +126,4 @@ export async function deleteLead(formData: FormData) {
   if (error) redirect(`/leads/${leadId}?error=Lead-ka lama tirtiri karin.`);
   redirect("/leads?message=Lead-ka waa la tirtiray.");
 }
+

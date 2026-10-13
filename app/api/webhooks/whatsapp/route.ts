@@ -50,24 +50,24 @@ export async function POST(request: Request) {
     logServerEvent("warn", "whatsapp.rate_limited", { requestId: id, agencyId });
     return NextResponse.json({ received: true, rateLimited: true }, { headers: { "X-Request-Id": id } });
   }
+  let { data: conversation } = await supabase.from("conversations").select("id,status").eq("agency_id", agencyId).eq("channel", "whatsapp").eq("external_thread_id", phone).maybeSingle();
   const customerName = value?.contacts?.[0]?.profile?.name?.trim() || null;
-  let { data: customer } = await supabase.from("customers").select("id,name").eq("agency_id", agencyId).eq("normalized_phone", phone).maybeSingle();
-  if (!customer) {
-    const result = await supabase.from("customers").insert({ agency_id: agencyId, name: customerName, phone: incoming.from, normalized_phone: phone, metadata: { whatsapp_wa_id: incoming.from } }).select("id,name").single();
-    customer = result.data;
-  } else if (!customer.name && customerName) await supabase.from("customers").update({ name: customerName }).eq("id", customer.id).eq("agency_id", agencyId);
-  if (!customer) return new NextResponse("Customer persistence failed", { status: 500 });
-
-  let { data: lead } = await supabase.from("leads").select("id,status").eq("agency_id", agencyId).eq("customer_id", customer.id).eq("source", "whatsapp").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  let lead: { id: string; status: string } | null = null;
+  if (conversation) {
+    const { data: existingConversation } = await supabase.from("conversations").select("lead_id").eq("id", conversation.id).eq("agency_id", agencyId).maybeSingle();
+    if (existingConversation?.lead_id) {
+      const result = await supabase.from("leads").select("id,status").eq("id", existingConversation.lead_id).eq("agency_id", agencyId).maybeSingle();
+      lead = result.data;
+    }
+  }
   if (!lead) {
-    const result = await supabase.from("leads").insert({ agency_id: agencyId, customer_id: customer.id, name: customerName, phone: incoming.from, source: "whatsapp", status: "new" }).select("id,status").single();
+    const result = await supabase.from("leads").insert({ agency_id: agencyId, name: customerName, phone: incoming.from, source: "whatsapp", status: "new" }).select("id,status").single();
     lead = result.data;
   }
   if (!lead) return new NextResponse("Lead persistence failed", { status: 500 });
 
-  let { data: conversation } = await supabase.from("conversations").select("id,status").eq("agency_id", agencyId).eq("channel", "whatsapp").eq("external_thread_id", phone).maybeSingle();
   if (!conversation) {
-    const result = await supabase.from("conversations").insert({ agency_id: agencyId, customer_id: customer.id, lead_id: lead.id, channel: "whatsapp", status: "ai_active", external_thread_id: phone }).select("id,status").single();
+    const result = await supabase.from("conversations").insert({ agency_id: agencyId, lead_id: lead.id, channel: "whatsapp", status: "ai_active", external_thread_id: phone }).select("id,status").single();
     conversation = result.data;
   }
   if (!conversation) return new NextResponse("Conversation persistence failed", { status: 500 });
@@ -108,3 +108,4 @@ export async function POST(request: Request) {
   if (extraction.usedAI) await supabase.rpc("record_ai_usage", { target_agency_id: agencyId, input_token_count: extraction.usage.inputTokens, output_token_count: extraction.usage.outputTokens, estimated_cost: estimateAiCostUsd(extraction.usage.inputTokens, extraction.usage.outputTokens) });
   return NextResponse.json({ received: true });
 }
+
