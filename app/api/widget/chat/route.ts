@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     extraction = await extractChatRequirements(message, []);
   }
   const requirement = extraction.data;
-  const shouldSearch = Boolean(requirement.purpose || requirement.district || requirement.budget_max || requirement.bedrooms || requirement.property_type || requirement.furnished !== null);
+  const shouldSearch = requirement.intent === "property_search" && Boolean(requirement.purpose || requirement.district || requirement.budget_max || requirement.bedrooms || requirement.property_type || requirement.furnished !== null);
   let properties: Array<Record<string, unknown>> = [];
   if (shouldSearch) {
     const { data } = await supabase.rpc("search_widget_properties", {
