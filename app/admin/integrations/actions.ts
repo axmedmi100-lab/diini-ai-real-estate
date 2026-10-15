@@ -64,7 +64,7 @@ export async function saveProviderSecret(formData: FormData) {
 
   if (provider === "openai") {
     try {
-      await new OpenAI({ apiKey: secret }).models.list();
+      await new OpenAI({ apiKey: secret, baseURL: "https://api.openai.com/v1" }).models.list();
     } catch (error) {
       const status = typeof error === "object" && error && "status" in error ? Number(error.status) : 0;
       if (status === 401) redirect("/admin/integrations?error=Key-ga cusub OpenAI ayaa diiday (401), sidaas darteed key-gii hore lama beddelin. Ku paste-garee secret-ka buuxa ee popup-ka Create secret key.");
@@ -121,7 +121,7 @@ export async function testProviderConnection(formData: FormData) {
   if (!apiKey) redirect("/admin/integrations?error=OpenAI API key lama helin.");
 
   try {
-    const client = new OpenAI({ apiKey });
+    const client = new OpenAI({ apiKey, baseURL: "https://api.openai.com/v1" });
     await client.models.list();
     redirect("/admin/integrations?message=OpenAI connection-ku waa sax; API key-ga waa la xaqiijiyey.");
   } catch (error) {
