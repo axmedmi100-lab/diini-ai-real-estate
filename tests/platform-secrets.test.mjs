@@ -35,3 +35,10 @@ test("property chat pins a supported model and retries structured-output failure
   assert.match(chat, /response_format: \{ type: "json_object" \}/);
 });
 
+test("property search results only override replies for an explicit search intent", async () => {
+  const chat = await read("lib/ai/property-chat.ts");
+  const widgetRoute = await read("app/api/widget/chat/route.ts");
+  assert.match(chat, /"greeting" \| "property_search" \| "capability" \| "general" \| "human_handoff"/);
+  assert.match(widgetRoute, /requirement\.intent === "property_search"/);
+});
+
