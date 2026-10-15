@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     ? requirement.language === "so"
       ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona."
       : "Your request for a human agent has been sent. Someone from the agency will contact you."
-    : shouldSearch
+    : properties.length > 0
       ? formatPropertyReply(requirement.language, properties.length)
       : requirement.reply;
   const meaningfulLead = shouldSearch || requirement.name || requirement.phone || requirement.email;
@@ -163,3 +163,4 @@ export async function POST(request: Request) {
   }
   return NextResponse.json({ message: assistantMessage, properties, usedAI: extraction.usedAI, humanHandoff: requirement.human_handoff });
 }
+
