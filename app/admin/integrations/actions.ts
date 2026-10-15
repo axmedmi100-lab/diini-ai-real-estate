@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
 
 import { encryptIntegrationSecret } from "@/lib/security/integration-secret";
@@ -56,9 +57,20 @@ function secretHint(secret: string) {
 export async function saveProviderSecret(formData: FormData) {
   const { user } = await getPlatformAdmin();
   const provider = String(formData.get("provider") ?? "");
-  const secret = String(formData.get("secret") ?? "").trim();
+  const secret = String(formData.get("secret") ?? "").trim().replace(/^Bearer\s+/i, "").replace(/^['\"]|['\"]$/g, "");
   if (!/^[a-z0-9_]+$/.test(provider) || secret.length < 12 || secret.length > 4096) {
     redirect("/admin/integrations?error=API secret-ku sax ma aha; ugu yaraan 12 xaraf geli.");
+  }
+
+  if (provider === "openai") {
+    try {
+      await new OpenAI({ apiKey: secret }).models.list();
+    } catch (error) {
+      const status = typeof error === "object" && error && "status" in error ? Number(error.status) : 0;
+      if (status === 401) redirect("/admin/integrations?error=Key-ga cusub OpenAI ayaa diiday (401), sidaas darteed key-gii hore lama beddelin. Ku paste-garee secret-ka buuxa ee popup-ka Create secret key.");
+      if (status === 403) redirect("/admin/integrations?error=Key-ga cusub project-kiisu API access ma haysto (403); key-gii hore lama beddelin.");
+      if (status !== 429) redirect(`/admin/integrations?error=${encodeURIComponent(`OpenAI key-ga cusub lama xaqiijin karin${status ? ` (${status})` : ""}; key-gii hore lama beddelin.`)}`);
+    }
   }
 
   try {
@@ -83,6 +95,7 @@ export async function saveProviderSecret(formData: FormData) {
   } catch {
     redirect("/admin/integrations?error=Secret-ka lama kaydin. Hubi migration-ka iyo INTEGRATION_ENCRYPTION_KEY.");
   }
+  revalidatePath("/admin/integrations");
   redirect("/admin/integrations?message=API secret-ka si encrypted ah ayaa loo kaydiyey.");
 }
 
