@@ -6,6 +6,20 @@ type Message = { sender_type: "customer" | "ai" | "agent" | "system"; message: s
 type Property = { id: string; title: string; district: string; price: number; currency: string; bedrooms: number | null; bathrooms: number | null; image_urls: string[] };
 type Config = { agency_name: string; assistant_name: string; is_enabled: boolean };
 
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  if (!text.trim()) {
+    throw new Error(response.ok
+      ? "Server-ku jawaab madhan ayuu soo celiyey. Mar kale isku day."
+      : `Chat server-ku wuu fashilmay (${response.status}). Mar kale isku day.`);
+  }
+  try {
+    return JSON.parse(text) as Record<string, any>;
+  } catch {
+    throw new Error(`Chat server-ku jawaab aan sax ahayn ayuu soo celiyey (${response.status}).`);
+  }
+}
+
 export function PropertyChatWidget({ agencyId }: { agencyId: string }) {
   const [config, setConfig] = useState<Config | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -24,7 +38,7 @@ export function PropertyChatWidget({ agencyId }: { agencyId: string }) {
     if (!token) { token = crypto.randomUUID(); localStorage.setItem(key, token); }
     sessionStorage.setItem("diini-current-token", token);
     fetch("/api/widget/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", agencyId, sessionToken: token }) })
-      .then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.error); return data; })
+      .then(async (response) => { const data = await readJsonResponse(response); if (!response.ok) throw new Error(String(data.error || "Chat-ka lama bilaabi karin.")); return data; })
       .then((data) => { setConfig(data.config); setConversationId(data.conversationId); setMessages(data.messages); })
       .catch((reason) => setError(reason.message || "Chat-ka lama bilaabi karin."))
       .finally(() => setLoading(false));
@@ -40,8 +54,8 @@ export function PropertyChatWidget({ agencyId }: { agencyId: string }) {
     setInput(""); setError(""); setSending(true); setMessages((current) => [...current, { sender_type: "customer", message }]);
     try {
       const response = await fetch("/api/widget/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "message", agencyId, conversationId, sessionToken: token, message }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(String(data.error || "Fariinta lama diri karin."));
       setMessages((current) => [...current, { sender_type: "ai", message: data.message, properties: data.properties }]);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Fariinta lama diri karin."); }
     finally { setSending(false); }
@@ -54,8 +68,8 @@ export function PropertyChatWidget({ agencyId }: { agencyId: string }) {
     setSending(true); setError("");
     try {
       const response = await fetch("/api/widget/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "book_viewing", agencyId, conversationId, sessionToken: token, propertyId: bookingProperty.id, startsAt: new Date(bookingTime).toISOString() }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(String(data.error || "Viewing-ga lama codsan karin."));
       setMessages((current) => [...current, { sender_type: "ai", message: data.message }]);
       setBookingProperty(null); setBookingTime("");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Viewing-ga lama codsan karin."); }
@@ -76,3 +90,4 @@ export function PropertyChatWidget({ agencyId }: { agencyId: string }) {
     </main>
   );
 }
+
