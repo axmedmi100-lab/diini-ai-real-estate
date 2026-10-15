@@ -12,11 +12,12 @@ export async function getPlatformIntegrationSecret(provider: string) {
     .eq("provider", provider)
     .maybeSingle();
 
-  if (error || !data?.encrypted_value) return null;
+  if (error) throw new Error(`Platform credential lookup failed for ${provider}: ${error.message}`);
+  if (!data?.encrypted_value) return null;
   try {
     return decryptIntegrationSecret(data.encrypted_value);
-  } catch {
-    return null;
+  } catch (error) {
+    throw new Error(`Platform credential decryption failed for ${provider}.`, { cause: error });
   }
 }
 
