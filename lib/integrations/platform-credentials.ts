@@ -21,6 +21,8 @@ export const getPlatformIntegrationSecret = cache(async (provider: string) => {
 });
 
 export async function getOpenAIKey() {
-  return (await getPlatformIntegrationSecret("openai")) || process.env.OPENAI_API_KEY || null;
+  const value = (await getPlatformIntegrationSecret("openai")) || process.env.OPENAI_API_KEY || null;
+  if (!value) return null;
+  return value.trim().replace(/^Bearer\s+/i, "").replace(/^['\"]|['\"]$/g, "");
 }
 
