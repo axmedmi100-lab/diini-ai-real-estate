@@ -123,7 +123,6 @@ export async function testProviderConnection(formData: FormData) {
   try {
     const client = new OpenAI({ apiKey, baseURL: "https://api.openai.com/v1" });
     await client.models.list();
-    redirect("/admin/integrations?message=OpenAI connection-ku waa sax; API key-ga waa la xaqiijiyey.");
   } catch (error) {
     const status = typeof error === "object" && error && "status" in error ? Number(error.status) : 0;
     const message = status === 401
@@ -135,5 +134,6 @@ export async function testProviderConnection(formData: FormData) {
           : `OpenAI connection test-ku wuu fashilmay${status ? ` (${status})` : ""}. Credential vault-ka ama server configuration-ka ayaa cilad leh; key kale ha abuurin.`;
     redirect(`/admin/integrations?error=${encodeURIComponent(message)}`);
   }
+  redirect("/admin/integrations?message=OpenAI connection-ku waa sax; API key-ga waa la xaqiijiyey.");
 }
 
