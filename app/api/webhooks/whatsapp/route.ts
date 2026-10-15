@@ -85,7 +85,7 @@ export async function POST(request: Request) {
   const extraction = await extractChatRequirements(message, (history ?? []).reverse(), { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
   const requirement = extraction.data;
   await supabase.from("leads").update({ name: requirement.name || customerName || undefined, phone: requirement.phone || incoming.from, email: requirement.email || undefined, purpose: requirement.purpose || undefined, district: requirement.district || undefined, budget_min: requirement.budget_min ?? undefined, budget_max: requirement.budget_max ?? undefined, bedrooms: requirement.bedrooms ?? undefined, property_type: requirement.property_type || undefined, furnished: requirement.furnished ?? undefined }).eq("id", lead.id).eq("agency_id", agencyId);
-  const shouldSearch = Boolean(requirement.purpose || requirement.district || requirement.budget_max || requirement.bedrooms || requirement.property_type || requirement.furnished !== null);
+  const shouldSearch = requirement.intent === "property_search" && Boolean(requirement.purpose || requirement.district || requirement.budget_max || requirement.bedrooms || requirement.property_type || requirement.furnished !== null);
   let propertyCount = 0;
   if (shouldSearch) {
     const { data } = await supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: requirement.purpose, wanted_district: requirement.district, min_budget: requirement.budget_min, max_budget: requirement.budget_max, min_bedrooms: requirement.bedrooms, wanted_property_type: requirement.property_type, wanted_furnished: requirement.furnished });
