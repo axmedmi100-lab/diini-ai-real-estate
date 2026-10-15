@@ -72,7 +72,7 @@ export async function extractChatRequirements(message: string, recentMessages: A
   }
   if (!apiKey) return { data: fallbackExtraction(message), usedAI: false, usage: { inputTokens: 0, outputTokens: 0 } };
   try {
-    const client = new OpenAI({ apiKey });
+    const client = new OpenAI({ apiKey, baseURL: "https://api.openai.com/v1" });
     const response = await client.responses.create({
     model: process.env.OPENAI_MODEL || "gpt-6-astra",
     reasoning: { effort: "none" },
