@@ -63,7 +63,13 @@ function fallbackExtraction(message: string): ChatRequirements {
 }
 
 export async function extractChatRequirements(message: string, recentMessages: Array<{ sender_type: string; message: string }>, rules: AIChatRules = {}) {
-  const apiKey = await getOpenAIKey();
+  let apiKey: string | null;
+  try {
+    apiKey = await getOpenAIKey();
+  } catch (error) {
+    console.error("OpenAI credential could not be loaded; using deterministic fallback", error);
+    return { data: fallbackExtraction(message), usedAI: false, usage: { inputTokens: 0, outputTokens: 0 } };
+  }
   if (!apiKey) return { data: fallbackExtraction(message), usedAI: false, usage: { inputTokens: 0, outputTokens: 0 } };
   try {
     const client = new OpenAI({ apiKey });
