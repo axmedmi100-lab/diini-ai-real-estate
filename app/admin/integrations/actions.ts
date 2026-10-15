@@ -1,10 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import OpenAI from "openai";
 
 import { encryptIntegrationSecret } from "@/lib/security/integration-secret";
 import { getPlatformAdmin } from "@/lib/platform-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getOpenAIKey } from "@/lib/integrations/platform-credentials";
 
 const modes = new Set(["managed", "byok", "hybrid"]);
 
@@ -95,5 +97,30 @@ export async function removeProviderSecret(formData: FormData) {
   await admin.from("platform_integration_providers").update({ secret_configured: false, secret_hint: null }).eq("provider", provider);
   await admin.from("platform_audit_logs").insert({ actor_user_id: user.id, action: "integration_provider.secret_removed", metadata: { provider } });
   redirect("/admin/integrations?message=API secret-ka waa laga saaray.");
+}
+
+export async function testProviderConnection(formData: FormData) {
+  await getPlatformAdmin();
+  const provider = String(formData.get("provider") ?? "");
+  if (provider !== "openai") redirect("/admin/integrations?error=Connection test-kan hadda OpenAI keliya ayuu taageeraa.");
+
+  const apiKey = await getOpenAIKey();
+  if (!apiKey) redirect("/admin/integrations?error=OpenAI API key lama helin.");
+
+  try {
+    const client = new OpenAI({ apiKey });
+    await client.models.list();
+    redirect("/admin/integrations?message=OpenAI connection-ku waa sax; API key-ga waa la xaqiijiyey.");
+  } catch (error) {
+    const status = typeof error === "object" && error && "status" in error ? Number(error.status) : 0;
+    const message = status === 401
+      ? "OpenAI ayaa diiday API key-ga (401). Key-gu wuu kaydsan yahay laakiin OpenAI uma aqoonsana credential sax ah; samee project API key cusub oo buuxa kadib Replace ku samee."
+      : status === 429
+        ? "OpenAI key-gu waa sax, laakiin quota/billing limit ayaa jira (429)."
+        : status === 403
+          ? "OpenAI key-gu waa sax, laakiin project-ka ama organization-ku ma oggola access-kan (403)."
+          : `OpenAI connection test-ku wuu fashilmay${status ? ` (${status})` : ""}.`;
+    redirect(`/admin/integrations?error=${encodeURIComponent(message)}`);
+  }
 }
 
