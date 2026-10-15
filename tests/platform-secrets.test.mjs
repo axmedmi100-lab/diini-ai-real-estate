@@ -27,3 +27,11 @@ test("OpenAI runtime prefers the encrypted platform vault", async () => {
   assert.match(chat, /await getOpenAIKey\(\)/);
 });
 
+test("property chat pins a supported model and retries structured-output failures", async () => {
+  const chat = await read("lib/ai/property-chat.ts");
+  assert.doesNotMatch(chat, /process\.env\.OPENAI_MODEL/);
+  assert.match(chat, /model: "gpt-4o-mini"/);
+  assert.match(chat, /chat\.completions\.create/);
+  assert.match(chat, /response_format: \{ type: "json_object" \}/);
+});
+
