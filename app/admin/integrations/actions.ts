@@ -132,7 +132,7 @@ export async function testProviderConnection(formData: FormData) {
         ? "OpenAI key-gu waa sax, laakiin quota/billing limit ayaa jira (429)."
         : status === 403
           ? "OpenAI key-gu waa sax, laakiin project-ka ama organization-ku ma oggola access-kan (403)."
-          : `OpenAI connection test-ku wuu fashilmay${status ? ` (${status})` : ""}.`;
+          : `OpenAI connection test-ku wuu fashilmay${status ? ` (${status})` : ""}. Credential vault-ka ama server configuration-ka ayaa cilad leh; key kale ha abuurin.`;
     redirect(`/admin/integrations?error=${encodeURIComponent(message)}`);
   }
 }
