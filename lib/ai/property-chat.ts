@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 
+import { getOpenAIKey } from "@/lib/integrations/platform-credentials";
+
 export type ChatRequirements = {
   language: "so" | "en";
   purpose: "rent" | "sale" | null;
@@ -51,8 +53,9 @@ function fallbackExtraction(message: string): ChatRequirements {
 }
 
 export async function extractChatRequirements(message: string, recentMessages: Array<{ sender_type: string; message: string }>, rules: AIChatRules = {}) {
-  if (!process.env.OPENAI_API_KEY) return { data: fallbackExtraction(message), usedAI: false, usage: { inputTokens: 0, outputTokens: 0 } };
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const apiKey = await getOpenAIKey();
+  if (!apiKey) return { data: fallbackExtraction(message), usedAI: false, usage: { inputTokens: 0, outputTokens: 0 } };
+  const client = new OpenAI({ apiKey });
   const response = await client.responses.create({
     model: process.env.OPENAI_MODEL || "gpt-6-luna",
     reasoning: { effort: "none" },
@@ -98,3 +101,4 @@ export function formatPropertyReply(language: "so" | "en", count: number) {
   if (language === "en") return count ? `I found ${count} available ${count === 1 ? "property" : "properties"} matching your request.` : "I couldn't find an available property matching all those requirements. Try changing the district or budget, or ask for a human agent.";
   return count ? `Waxaan helay ${count} ${count === 1 ? "property" : "properties"} oo diyaar ah kuna habboon codsigaaga.` : "Ma helin property diyaar ah oo dhammaan shuruudahaas leh. Waxaad beddeli kartaa degmada ama budget-ka, ama waxaad codsan kartaa agent.";
 }
+

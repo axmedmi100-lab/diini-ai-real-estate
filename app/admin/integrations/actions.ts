@@ -2,7 +2,9 @@
 
 import { redirect } from "next/navigation";
 
+import { encryptIntegrationSecret } from "@/lib/security/integration-secret";
 import { getPlatformAdmin } from "@/lib/platform-admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const modes = new Set(["managed", "byok", "hybrid"]);
 
@@ -42,5 +44,56 @@ export async function updateAgencyIntegration(formData: FormData) {
   });
   if (error) redirect(`/admin/integrations?error=${encodeURIComponent("Agency integration-ka lama cusboonaysiin.")}`);
   redirect("/admin/integrations?message=Agency integration-ka waa la cusboonaysiiyey.");
+}
+
+function secretHint(secret: string) {
+  if (secret.length <= 8) return `••••${secret.slice(-2)}`;
+  return `${secret.slice(0, 3)}••••••${secret.slice(-4)}`;
+}
+
+export async function saveProviderSecret(formData: FormData) {
+  const { user } = await getPlatformAdmin();
+  const provider = String(formData.get("provider") ?? "");
+  const secret = String(formData.get("secret") ?? "").trim();
+  if (!/^[a-z0-9_]+$/.test(provider) || secret.length < 12 || secret.length > 4096) {
+    redirect("/admin/integrations?error=API secret-ku sax ma aha; ugu yaraan 12 xaraf geli.");
+  }
+
+  try {
+    const admin = createAdminClient();
+    const encrypted = encryptIntegrationSecret(secret);
+    const { error: vaultError } = await admin.from("platform_integration_secrets").upsert(
+      { provider, encrypted_value: encrypted },
+      { onConflict: "provider" },
+    );
+    if (vaultError) throw vaultError;
+
+    const { error: stateError } = await admin.from("platform_integration_providers")
+      .update({ secret_configured: true, secret_hint: secretHint(secret) })
+      .eq("provider", provider);
+    if (stateError) throw stateError;
+
+    await admin.from("platform_audit_logs").insert({
+      actor_user_id: user.id,
+      action: "integration_provider.secret_saved",
+      metadata: { provider },
+    });
+  } catch {
+    redirect("/admin/integrations?error=Secret-ka lama kaydin. Hubi migration-ka iyo INTEGRATION_ENCRYPTION_KEY.");
+  }
+  redirect("/admin/integrations?message=API secret-ka si encrypted ah ayaa loo kaydiyey.");
+}
+
+export async function removeProviderSecret(formData: FormData) {
+  const { user } = await getPlatformAdmin();
+  const provider = String(formData.get("provider") ?? "");
+  if (!/^[a-z0-9_]+$/.test(provider)) redirect("/admin/integrations?error=Provider-ka sax ma aha.");
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("platform_integration_secrets").delete().eq("provider", provider);
+  if (error) redirect("/admin/integrations?error=Secret-ka lama saari karin.");
+  await admin.from("platform_integration_providers").update({ secret_configured: false, secret_hint: null }).eq("provider", provider);
+  await admin.from("platform_audit_logs").insert({ actor_user_id: user.id, action: "integration_provider.secret_removed", metadata: { provider } });
+  redirect("/admin/integrations?message=API secret-ka waa laga saaray.");
 }
 

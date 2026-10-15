@@ -13,8 +13,12 @@ test("platform integration control is super-admin gated and audited", () => {
 });
 
 test("agency integration overrides never accept provider secrets", () => {
-  assert.doesNotMatch(actions, /secret|token|api_key/i);
-  assert.match(actions, /target_enabled/);
-  assert.match(actions, /target_monthly_limit/);
+  const overrideAction = actions.slice(
+    actions.indexOf("export async function updateAgencyIntegration"),
+    actions.indexOf("function secretHint"),
+  );
+  assert.doesNotMatch(overrideAction, /secret|token|api_key/i);
+  assert.match(overrideAction, /target_enabled/);
+  assert.match(overrideAction, /target_monthly_limit/);
 });
 
