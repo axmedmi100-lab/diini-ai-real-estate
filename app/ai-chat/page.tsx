@@ -7,6 +7,9 @@ import { AppShell } from "@/components/layout/app-shell";
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
 import { getOpenAIKey } from "@/lib/integrations/platform-credentials";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function Icon({ name, className = "h-5 w-5" }: Readonly<{ name: string; className?: string }>) {
   const paths: Record<string, React.ReactNode> = {
     spark: <path d="m12 3-1.35 4.1a5.3 5.3 0 0 1-3.55 3.55L3 12l4.1 1.35a5.3 5.3 0 0 1 3.55 3.55L12 21l1.35-4.1a5.3 5.3 0 0 1 3.55-3.55L21 12l-4.1-1.35a5.3 5.3 0 0 1-3.55-3.55L12 3Z" />,
