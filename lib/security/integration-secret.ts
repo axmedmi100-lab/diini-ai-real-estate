@@ -1,11 +1,19 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 function encryptionKey() {
-  const encoded = process.env.INTEGRATION_ENCRYPTION_KEY;
+  const encoded = process.env.INTEGRATION_ENCRYPTION_KEY?.trim();
   if (!encoded) throw new Error("INTEGRATION_ENCRYPTION_KEY is missing.");
-  const key = Buffer.from(encoded, "base64");
-  if (key.length !== 32) throw new Error("INTEGRATION_ENCRYPTION_KEY must decode to 32 bytes.");
-  return key;
+
+  // Support the two standard ways a 32-byte key is commonly generated:
+  // 64 hexadecimal characters or base64. This also makes key rotation less
+  // error-prone across hosting dashboards that do not label the encoding.
+  if (/^[0-9a-f]{64}$/i.test(encoded)) return Buffer.from(encoded, "hex");
+
+  const base64Key = Buffer.from(encoded, "base64");
+  if (base64Key.length !== 32) {
+    throw new Error("INTEGRATION_ENCRYPTION_KEY must be 64 hex characters or base64 decoding to 32 bytes.");
+  }
+  return base64Key;
 }
 
 export function encryptIntegrationSecret(value: string) {
@@ -22,3 +30,4 @@ export function decryptIntegrationSecret(payload: string) {
   decipher.setAuthTag(Buffer.from(tag, "base64"));
   return Buffer.concat([decipher.update(Buffer.from(encrypted, "base64")), decipher.final()]).toString("utf8");
 }
+
