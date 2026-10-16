@@ -5,6 +5,7 @@ import { updateAIChatSettings } from "@/app/ai-chat/actions";
 import { AuthMessage } from "@/components/auth/auth-message";
 import { AppShell } from "@/components/layout/app-shell";
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
+import { getOpenAIKey } from "@/lib/integrations/platform-credentials";
 
 function Icon({ name, className = "h-5 w-5" }: Readonly<{ name: string; className?: string }>) {
   const paths: Record<string, React.ReactNode> = {
@@ -41,7 +42,15 @@ export default async function AIChatPage({ searchParams }: { searchParams: Promi
   const hotRules = (settings?.hot_lead_rules as Record<string, boolean | number> | undefined) ?? {};
   const handoffRules = (settings?.handoff_rules as Record<string, boolean> | undefined) ?? {};
   const enabled = settings?.is_enabled ?? false;
-  const aiReady = Boolean(process.env.OPENAI_API_KEY);
+  // The platform key is normally stored in the encrypted integration vault,
+  // not in OPENAI_API_KEY. Read the same credential source used by the chat
+  // route so the status banner reflects the real runtime state.
+  let aiReady = false;
+  try {
+    aiReady = Boolean(await getOpenAIKey());
+  } catch (error) {
+    console.error("OpenAI readiness check failed", error);
+  }
 
   return (
     <AppShell agencyName={agency.name} currentPath="/ai-chat" logoutAction={logout} userEmail={user.email}>
