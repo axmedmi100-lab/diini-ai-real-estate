@@ -1,0 +1,41 @@
+services:
+  app:
+    container_name: diini-real-estate-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_META_APP_ID: ${NEXT_PUBLIC_META_APP_ID:-}
+        NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID: ${NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID:-}
+        NEXT_PUBLIC_META_GRAPH_VERSION: ${NEXT_PUBLIC_META_GRAPH_VERSION:-v23.0}
+    env_file:
+      - .env.production
+    expose:
+      - "3000"
+    networks:
+      - app_internal
+      - proxy
+    restart: unless-stopped
+    init: true
+    mem_limit: 1g
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  app_internal:
+    name: diini_real_estate_internal
+    internal: true
+  proxy:
+    external: true
+    name: proxy_default
+
