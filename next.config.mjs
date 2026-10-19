@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   agentRules: false,
   allowedDevOrigins: ["127.0.0.1"],
   poweredByHeader: false,
@@ -16,3 +17,4 @@ const nextConfig = {
 };
 
 export default nextConfig;
+
