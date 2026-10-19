@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { login } from "../actions";
 import { AuthMessage } from "@/components/auth/auth-message";
 import { SubmitButton } from "@/components/auth/submit-button";
 
@@ -17,7 +16,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <h1 className="mt-3 text-3xl font-extrabold tracking-[-.04em] text-slate-950">Gal workspace-kaaga</h1>
       <p className="mt-3 text-sm leading-6 text-slate-500">Maamul leads-ka, properties-ka iyo team-kaaga hal meel.</p>
 
-      <form action={login} className="mt-8 space-y-5">
+      <form action="/auth/login" className="mt-8 space-y-5" method="post">
         <AuthMessage error={params.error} message={params.message} />
         <label className="block text-sm font-medium text-slate-700">
           Email
@@ -36,4 +35,3 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     </>
   );
 }
-
