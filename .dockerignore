@@ -1,0 +1,16 @@
+.git
+.github
+.next
+node_modules
+coverage
+tests
+supabase
+.env
+.env.*
+!.env.example
+*.log
+*.pem
+*.tsbuildinfo
+README.md
+MASTER_PROMPTS_REMAINING.md
+
