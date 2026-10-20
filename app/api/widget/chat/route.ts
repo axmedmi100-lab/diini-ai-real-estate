@@ -132,14 +132,6 @@ export async function POST(request: Request) {
     });
     if (requirement.timeline) await supabase.rpc("set_widget_lead_timeline", { target_agency_id: agencyId, target_conversation_id: conversationId, session_token: sessionToken, wanted_timeline: requirement.timeline });
   }
-  if (requirement.human_handoff && config.human_handoff_enabled) {
-    const { error: handoffError } = await supabase.rpc("request_widget_handoff", {
-      target_agency_id: agencyId,
-      target_conversation_id: conversationId,
-      session_token: sessionToken,
-    });
-    if (handoffError) return bad("Codsiga agent-ka lama gudbin.", 500);
-  }
   const { error: saveError } = await supabase.rpc("append_widget_exchange", {
     target_agency_id: agencyId,
     target_conversation_id: conversationId,
@@ -148,6 +140,14 @@ export async function POST(request: Request) {
     assistant_message: assistantMessage,
   });
   if (saveError) return bad("AI-ga conversation-kan waa la hakiyey ama fariinta lama kaydin.", 409);
+  if (requirement.human_handoff && config.human_handoff_enabled) {
+    const { error: handoffError } = await supabase.rpc("request_widget_handoff", {
+      target_agency_id: agencyId,
+      target_conversation_id: conversationId,
+      session_token: sessionToken,
+    });
+    if (handoffError) return bad("Fariinta waa la kaydiyey, laakiin codsiga agent-ka lama gudbin.", 500);
+  }
   if (extraction.usedAI) {
     try {
       const { error: usageError } = await createAdminClient().rpc("record_ai_usage", {
