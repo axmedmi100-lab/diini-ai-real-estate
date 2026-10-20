@@ -28,6 +28,9 @@ export async function getWhatsAppIntegration(agencyId: string) {
 }
 
 export async function sendWhatsAppText(agencyId: string, to: string, body: string) {
+  if (process.env.EVOLUTION_ENABLED === "true") {
+    return sendEvolutionWhatsAppText(to, body);
+  }
   const { config, token } = await getWhatsAppIntegration(agencyId);
   const version = process.env.META_GRAPH_VERSION;
   if (!version || !/^v\d+\.\d+$/.test(version)) throw new Error("META_GRAPH_VERSION is missing or invalid.");
@@ -42,6 +45,25 @@ export async function sendWhatsAppText(agencyId: string, to: string, body: strin
   return payload.messages[0].id;
 }
 
+async function sendEvolutionWhatsAppText(to: string, body: string) {
+  const baseUrl = process.env.EVOLUTION_API_URL?.replace(/\/$/, "");
+  const apiKey = process.env.EVOLUTION_API_KEY;
+  const instance = process.env.EVOLUTION_INSTANCE;
+  if (!baseUrl || !apiKey || !instance) throw new Error("Evolution credentials are incomplete.");
+  const number = to.replace(/\D/g, "");
+  if (!number || !body.trim()) throw new Error("Evolution message data is invalid.");
+  const response = await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(instance)}`, {
+    method: "POST",
+    headers: { apikey: apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ number, text: body }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const payload = await response.json() as { key?: { id?: string }; messageId?: string; error?: string; message?: string };
+  const messageId = payload.key?.id || payload.messageId;
+  if (!response.ok || !messageId) throw new Error(payload.message || payload.error || "Evolution message send failed.");
+  return messageId;
+}
+
 export async function validateWhatsAppPhone(phoneNumberId: string, token: string) {
   const version = process.env.META_GRAPH_VERSION;
   if (!version || !/^v\d+\.\d+$/.test(version)) throw new Error("META_GRAPH_VERSION is missing or invalid.");
@@ -50,3 +72,4 @@ export async function validateWhatsAppPhone(phoneNumberId: string, token: string
   if (!response.ok) throw new Error(payload.error?.message || "Meta phone validation failed.");
   return payload;
 }
+
