@@ -28,6 +28,21 @@ export type AIChatRules = {
 
 const propertyTypes = ["apartment", "house", "villa", "office", "shop", "land", "commercial", "other"];
 
+function normalizeRequirements(message: string, data: ChatRequirements): ChatRequirements {
+  const lower = message.toLowerCase();
+  const genericSomaliHome = /\bguri\b/.test(lower) && !/\b(apartment|house|villa|office|shop|land|commercial|dabaq|fiilo|xafiis|dukaan|dhul)\b/.test(lower);
+  const singleBudgetCeiling = data.budget_min !== null
+    && data.budget_max !== null
+    && data.budget_min === data.budget_max
+    && /\b(budget|ugu badnaan|ka hoose|ka yar|under|below|up to|max(?:imum)?)\b/.test(lower);
+
+  return {
+    ...data,
+    property_type: genericSomaliHome ? null : data.property_type,
+    budget_min: singleBudgetCeiling ? null : data.budget_min,
+  };
+}
+
 function numberNear(message: string, expression: RegExp) {
   const match = message.match(expression);
   return match ? Number(match[1].replace(/,/g, "")) : null;
@@ -42,7 +57,7 @@ function fallbackExtraction(message: string): ChatRequirements {
   const district = message.match(/(?:degmada|degmo|district)\s+([\p{L}'-]+)/iu)?.[1] ?? null;
   const bedrooms = numberNear(lower, /(\d+)\s*(?:qol|bed|bedroom)/);
   const money = [...lower.matchAll(/\$?\s*(\d[\d,]*)/g)].map((match) => Number(match[1].replace(/,/g, ""))).filter((value) => value >= 50);
-  const propertyType = propertyTypes.find((type) => lower.includes(type)) ?? (lower.includes("guri") ? "house" : null);
+  const propertyType = propertyTypes.find((type) => lower.includes(type)) ?? null;
   const furnished = /unfurnished|aan\s+furnished/.test(lower) ? false : /furnished|alaabaysan/.test(lower) ? true : null;
   const phone = message.match(/\+?\d[\d\s-]{7,}/)?.[0]?.trim() ?? null;
   const email = message.match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/)?.[0] ?? null;
@@ -72,7 +87,7 @@ function fallbackExtraction(message: string): ChatRequirements {
             ? "I did not fully understand that question. Please rephrase it, or ask for a human agent."
             : "Su'aashaas si fiican uma fahmin. Fadlan si kale u qor, ama codso agent bani-aadam ah.";
   const timeline = message.match(/(?:within|gudahood|muddo)s+([\p{L}\d\s-]{1,30})/iu)?.[1]?.trim() ?? null;
-  return { intent, language, purpose, district, budget_min: money[0] ?? null, budget_max: money[1] ?? money[0] ?? null, bedrooms, property_type: propertyType, furnished, timeline, name: null, phone, email, human_handoff: wantsHuman, reply };
+  return normalizeRequirements(message, { intent, language, purpose, district, budget_min: money[0] ?? null, budget_max: money[1] ?? money[0] ?? null, bedrooms, property_type: propertyType, furnished, timeline, name: null, phone, email, human_handoff: wantsHuman, reply });
 }
 
 export async function extractChatRequirements(message: string, recentMessages: Array<{ sender_type: string; message: string }>, rules: AIChatRules = {}) {
@@ -133,7 +148,7 @@ export async function extractChatRequirements(message: string, recentMessages: A
     const content = completion.choices[0]?.message?.content;
     if (!content?.trim()) throw new Error("OpenAI returned an empty response");
     return {
-      data: JSON.parse(content) as ChatRequirements,
+      data: normalizeRequirements(message, JSON.parse(content) as ChatRequirements),
       usedAI: true,
       usage: { inputTokens: completion.usage?.prompt_tokens ?? 0, outputTokens: completion.usage?.completion_tokens ?? 0 },
     };
@@ -169,7 +184,7 @@ export async function extractChatRequirements(message: string, recentMessages: A
         reply: typeof parsed.reply === "string" && parsed.reply.trim() ? parsed.reply.trim() : fallback.reply,
       };
       return {
-        data,
+        data: normalizeRequirements(message, data),
         usedAI: true,
         usage: { inputTokens: completion.usage?.prompt_tokens ?? 0, outputTokens: completion.usage?.completion_tokens ?? 0 },
       };
