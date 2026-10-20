@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     if (error.status === 0 || error.name === "AuthRetryableFetchError") {
@@ -36,6 +36,52 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: isPlatformAdmin } = await supabase.rpc("is_platform_super_admin");
+  if (!isPlatformAdmin && authData.user) {
+    const { data: membership } = await supabase
+      .from("agency_members")
+      .select("id")
+      .eq("user_id", authData.user.id)
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+
+    if (!membership) {
+      const agencyName = String(authData.user.user_metadata?.agency_name ?? "").trim();
+      if (!agencyName) {
+        return redirectToLogin(request, "Agency workspace-ka account-kan lama helin. La xiriir Super Admin-ka si agency loogu xiro.");
+      }
+
+      const slugBase = agencyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "agency";
+      const slug = `${slugBase}-${authData.user.id.replaceAll("-", "").slice(0, 8)}`;
+      const { data: existingAgency } = await supabase
+        .from("agencies")
+        .select("id")
+        .eq("created_by", authData.user.id)
+        .limit(1)
+        .maybeSingle();
+      const agencyResult = existingAgency
+        ? { data: existingAgency, error: null }
+        : await supabase
+            .from("agencies")
+            .insert({ created_by: authData.user.id, name: agencyName, slug })
+            .select("id")
+            .single();
+      const { data: agency, error: agencyError } = agencyResult;
+
+      if (agencyError || !agency) {
+        return redirectToLogin(request, "Agency workspace-ka lama diyaarin karin. Fadlan la xiriir Super Admin-ka.");
+      }
+
+      const { error: memberError } = await supabase
+        .from("agency_members")
+        .insert({ agency_id: agency.id, user_id: authData.user.id, role: "owner" });
+      if (memberError) {
+        return redirectToLogin(request, "Agency membership-ka lama diyaarin karin. Fadlan la xiriir Super Admin-ka.");
+      }
+
+      await supabase.from("ai_settings").insert({ agency_id: agency.id });
+    }
+  }
   const destination = request.nextUrl.clone();
   destination.pathname = isPlatformAdmin ? "/admin" : "/dashboard";
   destination.search = "";
