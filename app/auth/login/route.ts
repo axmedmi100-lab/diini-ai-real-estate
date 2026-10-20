@@ -2,10 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 
+function publicUrl(pathname: string) {
+  const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  return new URL(pathname, `${origin}/`);
+}
+
 function redirectToLogin(request: NextRequest, message: string) {
-  const destination = request.nextUrl.clone();
-  destination.pathname = "/login";
-  destination.search = "";
+  const destination = publicUrl("/login");
   destination.searchParams.set("error", message);
   return NextResponse.redirect(destination, 303);
 }
@@ -82,8 +85,6 @@ export async function POST(request: NextRequest) {
       await supabase.from("ai_settings").insert({ agency_id: agency.id });
     }
   }
-  const destination = request.nextUrl.clone();
-  destination.pathname = isPlatformAdmin ? "/admin" : "/dashboard";
-  destination.search = "";
+  const destination = publicUrl(isPlatformAdmin ? "/admin" : "/dashboard");
   return NextResponse.redirect(destination, 303);
 }
