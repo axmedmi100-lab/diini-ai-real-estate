@@ -6,7 +6,7 @@ import { extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-
 import { contentLengthExceeds, logServerEvent, MAX_WEBHOOK_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { estimateAiCostUsd } from "@/lib/usage/ai-cost";
-import { sendWhatsAppText } from "@/lib/whatsapp/meta";
+import { sendWhatsAppImage, sendWhatsAppText } from "@/lib/whatsapp/meta";
 
 type EvolutionPayload = {
   event?: string;
@@ -36,6 +36,35 @@ function normalizePhone(value: string) { return value.replace(/@.*$/, "").replac
 function messageText(payload: EvolutionPayload) {
   const message = payload.data?.message;
   return (message?.conversation || message?.extendedTextMessage?.text || message?.imageMessage?.caption || message?.videoMessage?.caption || "").trim();
+}
+
+type MatchedProperty = {
+  id: string;
+  title: string;
+  property_type: string;
+  purpose: "rent" | "sale";
+  district: string;
+  price: number;
+  currency: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  furnished: boolean;
+  image_urls: unknown;
+};
+
+function asksToSeeProperty(message: string) {
+  return /\b(i\s*tus|itus|soo\s+bandhig|sawir(?:ka|rada|ro)?|faahfaahin(?:ta)?|show\s+me|photos?|pictures?)\b/i.test(message);
+}
+
+function propertyCaption(property: MatchedProperty, language: "so" | "en") {
+  const price = `${property.currency || "USD"} ${Number(property.price).toLocaleString()}`;
+  if (language === "en") return `🏠 ${property.title}\n📍 ${property.district}\n💵 ${price}\n🛏 ${property.bedrooms ?? "—"} bedrooms · 🚿 ${property.bathrooms ?? "—"} bathrooms\n🪑 Furnished: ${property.furnished ? "Yes" : "No"}`;
+  return `🏠 ${property.title}\n📍 ${property.district}\n💵 ${price}\n🛏 ${property.bedrooms ?? "—"} qol · 🚿 ${property.bathrooms ?? "—"} musqulood\n🪑 Furnished: ${property.furnished ? "Haa" : "Maya"}`;
+}
+
+function propertyImages(property: MatchedProperty) {
+  if (!Array.isArray(property.image_urls)) return [];
+  return property.image_urls.filter((value): value is string => typeof value === "string" && /^https:\/\//i.test(value)).slice(0, 3);
 }
 
 export async function POST(request: Request) {
@@ -100,19 +129,31 @@ export async function POST(request: Request) {
   if (!settings?.is_enabled) return NextResponse.json({ received: true, ai_disabled: true });
   const extraction = await extractChatRequirements(message, (history ?? []).reverse(), { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
   const requirement = extraction.data;
+  const showRequest = asksToSeeProperty(message);
   await supabase.from("leads").update({ name: requirement.name || customerName || undefined, phone: requirement.phone || phone, email: requirement.email || undefined, purpose: requirement.purpose || undefined, district: requirement.district || undefined, budget_min: requirement.budget_min ?? undefined, budget_max: requirement.budget_max ?? undefined, bedrooms: requirement.bedrooms ?? undefined, property_type: requirement.property_type || undefined, furnished: requirement.furnished ?? undefined }).eq("id", lead.id).eq("agency_id", agencyId);
-  const shouldSearch = requirement.intent === "property_search" && Boolean(requirement.purpose || requirement.district || requirement.budget_max || requirement.bedrooms || requirement.property_type || requirement.furnished !== null);
-  let propertyCount = 0;
+  const shouldSearch = (requirement.intent === "property_search" || showRequest) && Boolean(requirement.purpose || requirement.district || requirement.budget_max || requirement.bedrooms || requirement.property_type || requirement.furnished !== null);
+  let properties: MatchedProperty[] = [];
   if (shouldSearch) {
-    const { data } = await supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: requirement.purpose, wanted_district: requirement.district, min_budget: requirement.budget_min, max_budget: requirement.budget_max, min_bedrooms: requirement.bedrooms, wanted_property_type: requirement.property_type, wanted_furnished: requirement.furnished });
-    propertyCount = data?.length ?? 0;
+    const { data, error } = await supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: requirement.purpose, wanted_district: requirement.district, min_budget: requirement.budget_min, max_budget: requirement.budget_max, min_bedrooms: requirement.bedrooms, wanted_property_type: requirement.property_type, wanted_furnished: requirement.furnished });
+    if (error) {
+      logServerEvent("error", "evolution.property_search_failed", { requestId: id, agencyId, error: error.message });
+      return new NextResponse("Property search failed", { status: 500 });
+    }
+    properties = (data ?? []) as MatchedProperty[];
   }
-  const handoff = requirement.human_handoff && settings.human_handoff_enabled;
-  const reply = handoff ? (requirement.language === "so" ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona." : "Your request for a human agent has been sent. Someone from the agency will contact you.") : shouldSearch ? formatPropertyReply(requirement.language, propertyCount) : requirement.reply;
+  const handoff = !showRequest && requirement.human_handoff && settings.human_handoff_enabled;
+  const selectedProperty = properties[0];
+  const reply = handoff ? (requirement.language === "so" ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona." : "Your request for a human agent has been sent. Someone from the agency will contact you.") : selectedProperty ? propertyCaption(selectedProperty, requirement.language) : shouldSearch ? formatPropertyReply(requirement.language, properties.length) : requirement.reply;
   try {
     const outboundId = await sendWhatsAppText(agencyId, phone, reply);
     await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: reply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId } });
     await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
+    if (selectedProperty) {
+      for (const [index, imageUrl] of propertyImages(selectedProperty).entries()) {
+        await sendWhatsAppImage(agencyId, phone, imageUrl, index === 0 ? propertyCaption(selectedProperty, requirement.language) : "");
+        await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
+      }
+    }
   } catch (error) {
     logServerEvent("error", "evolution.send_failed", { requestId: id, agencyId, error: error instanceof Error ? error.message : "unknown" });
     await supabase.from("notifications").insert({ agency_id: agencyId, type: "whatsapp_send_failed", title: "WhatsApp reply failed", body: "AI reply-ga Evolution looma diri karin.", entity_type: "conversation", entity_id: conversation.id });
