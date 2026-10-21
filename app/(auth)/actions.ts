@@ -95,8 +95,4 @@ export async function logout() {
   redirect("/login?message=Waad ka baxday account-ka.");
 }
 
-export async function switchToAgencyLogin() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  redirect(`/login?message=${encodeURIComponent("Ku gal email-ka iyo password-ka agency account-ka.")}`);
-}
+
