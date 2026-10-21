@@ -45,6 +45,26 @@ export async function sendWhatsAppText(agencyId: string, to: string, body: strin
   return payload.messages[0].id;
 }
 
+export async function sendWhatsAppImage(agencyId: string, to: string, imageUrl: string, caption = "") {
+  const mediaUrl = new URL(imageUrl);
+  if (mediaUrl.protocol !== "https:") throw new Error("WhatsApp image URL must use HTTPS.");
+  if (process.env.EVOLUTION_ENABLED === "true") {
+    return sendEvolutionWhatsAppImage(to, mediaUrl.toString(), caption);
+  }
+  const { config, token } = await getWhatsAppIntegration(agencyId);
+  const version = process.env.META_GRAPH_VERSION;
+  if (!version || !/^v\d+\.\d+$/.test(version)) throw new Error("META_GRAPH_VERSION is missing or invalid.");
+  const response = await fetch(`https://graph.facebook.com/${version}/${config.phone_number_id}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, type: "image", image: { link: mediaUrl.toString(), caption: caption.slice(0, 1024) } }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const payload = await response.json() as { messages?: Array<{ id: string }>; error?: { message?: string } };
+  if (!response.ok || !payload.messages?.[0]?.id) throw new Error(payload.error?.message || "Meta image send failed.");
+  return payload.messages[0].id;
+}
+
 async function sendEvolutionWhatsAppText(to: string, body: string) {
   const baseUrl = process.env.EVOLUTION_API_URL?.replace(/\/$/, "");
   const apiKey = process.env.EVOLUTION_API_KEY;
@@ -61,6 +81,25 @@ async function sendEvolutionWhatsAppText(to: string, body: string) {
   const payload = await response.json() as { key?: { id?: string }; messageId?: string; error?: string; message?: string };
   const messageId = payload.key?.id || payload.messageId;
   if (!response.ok || !messageId) throw new Error(payload.message || payload.error || "Evolution message send failed.");
+  return messageId;
+}
+
+async function sendEvolutionWhatsAppImage(to: string, media: string, caption: string) {
+  const baseUrl = process.env.EVOLUTION_API_URL?.replace(/\/$/, "");
+  const apiKey = process.env.EVOLUTION_API_KEY;
+  const instance = process.env.EVOLUTION_INSTANCE;
+  if (!baseUrl || !apiKey || !instance) throw new Error("Evolution credentials are incomplete.");
+  const number = to.replace(/\D/g, "");
+  if (!number) throw new Error("Evolution recipient is invalid.");
+  const response = await fetch(`${baseUrl}/message/sendMedia/${encodeURIComponent(instance)}`, {
+    method: "POST",
+    headers: { apikey: apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ number, mediatype: "image", mimetype: "image/jpeg", media, caption: caption.slice(0, 1024) }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const payload = await response.json() as { key?: { id?: string }; messageId?: string; error?: string; message?: string };
+  const messageId = payload.key?.id || payload.messageId;
+  if (!response.ok || !messageId) throw new Error(payload.message || payload.error || "Evolution image send failed.");
   return messageId;
 }
 
