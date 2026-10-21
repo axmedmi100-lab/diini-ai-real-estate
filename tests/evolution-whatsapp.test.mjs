@@ -18,6 +18,16 @@ test("Evolution outbound messages use a server-only API key", async () => {
   const provider = await read("lib/whatsapp/meta.ts");
   assert.match(provider, /process\.env\.EVOLUTION_API_KEY/);
   assert.match(provider, /\/message\/sendText\//);
+  assert.match(provider, /\/message\/sendMedia\//);
   assert.match(provider, /headers: \{ apikey: apiKey/);
+});
+
+test("Evolution property matches send details and image media without accidental handoff", async () => {
+  const webhook = await read("app/api/webhooks/evolution/route.ts");
+  assert.match(webhook, /asksToSeeProperty/);
+  assert.match(webhook, /!showRequest && requirement\.human_handoff/);
+  assert.match(webhook, /sendWhatsAppImage/);
+  assert.match(webhook, /propertyImages\(selectedProperty\)/);
+  assert.match(webhook, /evolution\.property_search_failed/);
 });
 
