@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
+import { agencyDateTimeLocalToUtc } from "@/lib/date-time";
 import { hasAgencyPermission } from "@/lib/permissions";
 
 const text = (formData: FormData, name: string) => String(formData.get(name) ?? "").trim();
@@ -30,8 +31,8 @@ export async function toggleFollowUpRule(formData: FormData) {
 export async function scheduleFollowUp(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
   if (!hasAgencyPermission(membership.role, "manage_crm")) redirect("/follow-ups?error=Ma lihid oggolaanshaha follow-up cusub.");
-  const leadId = text(formData, "lead_id"); const scheduledFor = new Date(text(formData, "scheduled_for")); const template = text(formData, "message_template");
-  if (!leadId || !template || Number.isNaN(scheduledFor.getTime()) || scheduledFor.getTime() <= Date.now()) redirect("/follow-ups?error=Lead, fariin iyo waqti mustaqbal ah waa waajib.");
+  const leadId = text(formData, "lead_id"); const scheduledFor = agencyDateTimeLocalToUtc(text(formData, "scheduled_for"), agency.timezone); const template = text(formData, "message_template");
+  if (!leadId || !template || !scheduledFor || scheduledFor.getTime() <= Date.now()) redirect("/follow-ups?error=Lead, fariin iyo waqti mustaqbal ah waa waajib.");
   const { data: lead } = await supabase.from("leads").select("id").eq("id", leadId).eq("agency_id", agency.id).maybeSingle();
   if (!lead) redirect("/follow-ups?error=Lead-ka lama helin.");
   const { data: conversation } = await supabase.from("conversations").select("id").eq("agency_id", agency.id).eq("lead_id", leadId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
@@ -72,3 +73,4 @@ export async function setCustomerOptOut(formData: FormData) {
   }
   redirect("/follow-ups?message=Customer preference-ka waa la kaydiyey.");
 }
+
