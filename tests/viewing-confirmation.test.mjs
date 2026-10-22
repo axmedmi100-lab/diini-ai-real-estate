@@ -16,6 +16,7 @@ test("confirming a viewing sends one WhatsApp confirmation on the status transit
   assert.match(actions, /1440/);
   assert.match(actions, /120/);
   assert.match(actions, /viewing_id,reminder_offset_minutes/);
+  assert.match(actions, /viewing_reminder_failed/);
 });
 
 test("production scheduler runs the authenticated follow-up worker", async () => {
