@@ -57,7 +57,7 @@ function asksToSeeProperty(message: string) {
 }
 
 function asksForViewing(message: string) {
-  return /\b(viewing|appointment|ballan|booqasho|daawasho|soo\s+arko|soo\s+arki|arkaa|arko|daawado)\b/i.test(message);
+  return /\b(viewing|appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|so{1,2}\s+arki|arkaa|arko|daawado)\b/i.test(message);
 }
 
 function asksForViewingStatus(message: string) {
@@ -202,10 +202,13 @@ export async function POST(request: Request) {
     supabase.from("messages").select("sender_type,message").eq("agency_id", agencyId).eq("conversation_id", conversation.id).order("created_at", { ascending: false }).limit(10),
   ]);
   if (!settings?.is_enabled) return NextResponse.json({ received: true, ai_disabled: true });
-  const extraction = await extractChatRequirements(message, (history ?? []).reverse(), { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
+  const orderedHistory = (history ?? []).reverse();
+  const extraction = await extractChatRequirements(message, orderedHistory, { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
   const requirement = extraction.data;
   const showRequest = asksToSeeProperty(message);
-  const viewingRequest = asksForViewing(message);
+  const parsedViewingTime = parseSomaliViewingTime(message);
+  const awaitingViewingTime = orderedHistory.slice(-4).some((item) => item.sender_type === "ai" && /(?:taariikhda iyo saacadda viewing-ka|viewing date and time)/i.test(item.message));
+  const viewingRequest = asksForViewing(message) || Boolean(parsedViewingTime && awaitingViewingTime);
   await supabase.from("leads").update({ name: requirement.name || customerName || undefined, phone: requirement.phone || phone, email: requirement.email || undefined, purpose: requirement.purpose || undefined, district: requirement.district || undefined, budget_min: requirement.budget_min ?? undefined, budget_max: requirement.budget_max ?? undefined, bedrooms: requirement.bedrooms ?? undefined, property_type: requirement.property_type || undefined, furnished: requirement.furnished ?? undefined }).eq("id", lead.id).eq("agency_id", agencyId);
   const searchRequirement = {
     purpose: requirement.purpose ?? lead.purpose ?? null,
@@ -254,7 +257,7 @@ export async function POST(request: Request) {
     }
   }
   if (viewingRequest) {
-    const startsAt = parseSomaliViewingTime(message);
+    const startsAt = parsedViewingTime;
     const bookingReply = !selectedProperty
       ? "Property-ga aad viewing-ka u rabto lama xaqiijin. Fadlan marka hore dooro property-ga aad rabto."
       : !startsAt
