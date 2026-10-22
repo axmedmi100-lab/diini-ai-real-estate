@@ -53,25 +53,50 @@ export async function updateViewing(formData: FormData) {
   const { error } = await supabase.from("viewings").update({ status, agent_id: agentId, starts_at: startsAt.toISOString(), notes: value(formData, "notes") || null }).eq("id", viewingId).eq("agency_id", agency.id);
   if (error) redirect(`/viewings/${viewingId}?error=Viewing-ga lama cusboonaysiin karin.`);
   let confirmationNotice = "Viewing-ga waa la cusboonaysiiyey.";
-  if (status === "confirmed" && existingViewing.status !== "confirmed") {
+  if (status === "confirmed") {
     const [{ data: property }, { data: conversation }] = await Promise.all([
       supabase.from("properties").select("title").eq("id", existingViewing.property_id).eq("agency_id", agency.id).maybeSingle(),
       supabase.from("conversations").select("id,external_thread_id").eq("agency_id", agency.id).eq("lead_id", existingViewing.lead_id).eq("channel", "whatsapp").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (conversation?.external_thread_id) {
       const confirmation = `Viewing-gaaga ${property?.title || "property-ga"} waa la xaqiijiyey ${formatAgencyDateTime(startsAt, agency.timezone)}.`;
-      try {
-        const providerMessageId = await sendWhatsAppText(agency.id, conversation.external_thread_id, confirmation);
-        await Promise.all([
-          supabase.from("messages").insert({ agency_id: agency.id, conversation_id: conversation.id, sender_type: "system", message: confirmation, metadata: { provider: "evolution_whatsapp", provider_message_id: providerMessageId, viewing_id: viewingId, status: "confirmed" } }),
-          supabase.rpc("record_whatsapp_usage", { target_agency_id: agency.id, message_count: 1 }),
-        ]);
-        confirmationNotice = "Viewing-ga waa la xaqiijiyey; customer-kana WhatsApp ayaa loo diray.";
-      } catch {
-        await supabase.from("notifications").insert({ agency_id: agency.id, type: "whatsapp_send_failed", title: "Viewing confirmation failed", body: "Viewing-ga waa la xaqiijiyey, laakiin WhatsApp confirmation-ka lama dirin.", entity_type: "viewing", entity_id: viewingId });
-        confirmationNotice = "Viewing-ga waa la xaqiijiyey, laakiin WhatsApp confirmation-ka lama dirin.";
+      if (existingViewing.status !== "confirmed") {
+        try {
+          const providerMessageId = await sendWhatsAppText(agency.id, conversation.external_thread_id, confirmation);
+          await Promise.all([
+            supabase.from("messages").insert({ agency_id: agency.id, conversation_id: conversation.id, sender_type: "system", message: confirmation, metadata: { provider: "evolution_whatsapp", provider_message_id: providerMessageId, viewing_id: viewingId, status: "confirmed" } }),
+            supabase.rpc("record_whatsapp_usage", { target_agency_id: agency.id, message_count: 1 }),
+          ]);
+          confirmationNotice = "Viewing-ga waa la xaqiijiyey; customer-kana WhatsApp ayaa loo diray.";
+        } catch {
+          await supabase.from("notifications").insert({ agency_id: agency.id, type: "whatsapp_send_failed", title: "Viewing confirmation failed", body: "Viewing-ga waa la xaqiijiyey, laakiin WhatsApp confirmation-ka lama dirin.", entity_type: "viewing", entity_id: viewingId });
+          confirmationNotice = "Viewing-ga waa la xaqiijiyey, laakiin WhatsApp confirmation-ka lama dirin.";
+        }
       }
+      const now = Date.now();
+      const reminders = [
+        { minutes: 1440, label: "24 saac" },
+        { minutes: 120, label: "2 saac" },
+      ].map(({ minutes, label }) => ({
+        agency_id: agency.id,
+        lead_id: existingViewing.lead_id,
+        conversation_id: conversation.id,
+        viewing_id: viewingId,
+        reminder_offset_minutes: minutes,
+        channel: "whatsapp" as const,
+        scheduled_for: new Date(startsAt.getTime() - minutes * 60_000).toISOString(),
+        message_template: `Xasuusin (${label} kahor): Viewing-gaaga ${property?.title || "property-ga"} wuxuu dhacayaa ${formatAgencyDateTime(startsAt, agency.timezone)}.`,
+        status: "pending",
+        attempt_count: 0,
+        sent_at: null,
+        last_error: null,
+        processing_started_at: null,
+        provider_message_id: null,
+      })).filter((item) => new Date(item.scheduled_for).getTime() > now);
+      if (reminders.length) await supabase.from("follow_ups").upsert(reminders, { onConflict: "viewing_id,reminder_offset_minutes" });
     }
+  } else {
+    await supabase.from("follow_ups").update({ status: "cancelled" }).eq("agency_id", agency.id).eq("viewing_id", viewingId).in("status", ["pending", "processing"]);
   }
   redirect(`/viewings/${viewingId}?message=${encodeURIComponent(confirmationNotice)}`);
 }
