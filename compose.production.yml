@@ -41,10 +41,7 @@ services:
       - >-
         while true; do
           echo "[$$(date -Iseconds)] Running follow-up worker";
-          wget -qO- --timeout=20
-          --header="Authorization: Bearer $$CRON_SECRET"
-          http://app:3000/api/cron/follow-ups
-          || echo "[$$(date -Iseconds)] Follow-up worker request failed";
+          wget -qO- --timeout=20 --header="Authorization: Bearer $$CRON_SECRET" http://app:3000/api/cron/follow-ups || echo "[$$(date -Iseconds)] Follow-up worker request failed";
           echo;
           sleep 60;
         done
