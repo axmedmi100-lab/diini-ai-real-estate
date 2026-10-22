@@ -32,3 +32,12 @@ test("follow-up UI and manual scheduling use the agency timezone", async () => {
   assert.match(actions, /agencyDateTimeLocalToUtc\(text\(formData, "scheduled_for"\), agency\.timezone\)/);
 });
 
+test("completed and no-show transitions send one customer outcome message", async () => {
+  const actions = await read("app/viewings/actions.ts");
+  assert.match(actions, /\["completed", "no_show"\]\.includes\(status\)/);
+  assert.match(actions, /existingViewing\.status !== status/);
+  assert.match(actions, /Ma xiisaynaysaa property-gan/);
+  assert.match(actions, /Ma rabtaa inaan kuu qabanno taariikh iyo saacad kale/);
+  assert.match(actions, /Viewing outcome message failed/);
+});
+
