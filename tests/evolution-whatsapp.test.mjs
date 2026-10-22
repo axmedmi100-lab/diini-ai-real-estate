@@ -40,3 +40,12 @@ test("Evolution viewing requests create a real booking instead of a generic repl
   assert.match(webhook, /viewingId/);
 });
 
+test("Evolution confirms an existing upcoming viewing without creating another booking or handoff", async () => {
+  const webhook = await read("app/api/webhooks/evolution/route.ts");
+  assert.match(webhook, /asksForViewingStatus/);
+  assert.match(webhook, /evolution\.viewing_status_failed/);
+  assert.match(webhook, /Weli wuxuu sugayaa xaqiijinta agency-ga/);
+  assert.match(webhook, /viewingStatus/);
+  assert.ok(webhook.indexOf("if (asksForViewingStatus(message))") < webhook.indexOf('if (conversation.status === "human_active")'));
+});
+
