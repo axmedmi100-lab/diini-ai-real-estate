@@ -60,6 +60,10 @@ function asksForViewing(message: string) {
   return /\b(viewing|appointment|ballan|booqasho|daawasho|soo\s+arko|soo\s+arki|arkaa|arko|daawado)\b/i.test(message);
 }
 
+function asksForViewingStatus(message: string) {
+  return /(?:ma\s+la\s+(?:diiwaan(?:geliyey|galiyey|gashan)|qoray)|(?:viewing|booking|ballan|booqasho).{0,40}(?:xaalad|status|xaqiiji|confirmed|diiwaan(?:geliyey|galiyey|gashan)))/i.test(message);
+}
+
 function parseSomaliViewingTime(message: string, now = new Date()) {
   const lower = message.toLowerCase();
   const time = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(subaxnimo|duhurnimo|galabnimo|fiidnimo|habeenimo|am|pm)?/i);
@@ -152,6 +156,33 @@ export async function POST(request: Request) {
 
   await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "customer", message, metadata: { provider: "evolution_whatsapp", provider_message_id: incomingId } });
   await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
+  if (asksForViewingStatus(message)) {
+    const { data: viewing, error: viewingError } = await supabase.from("viewings")
+      .select("id,property_id,starts_at,status")
+      .eq("agency_id", agencyId)
+      .eq("lead_id", lead.id)
+      .in("status", ["requested", "confirmed"])
+      .gte("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (viewingError) {
+      logServerEvent("error", "evolution.viewing_status_failed", { requestId: id, agencyId, error: viewingError.message });
+      return new NextResponse("Viewing status lookup failed", { status: 500 });
+    }
+    let propertyTitle = "property-ga";
+    if (viewing?.property_id) {
+      const { data: property } = await supabase.from("properties").select("title").eq("id", viewing.property_id).eq("agency_id", agencyId).maybeSingle();
+      if (property?.title) propertyTitle = property.title;
+    }
+    const reply = viewing
+      ? `Haa, viewing-ga ${propertyTitle} waa la diiwaangeliyey ${new Intl.DateTimeFormat("so-SO", { timeZone: "Africa/Mogadishu", dateStyle: "medium", timeStyle: "short" }).format(new Date(viewing.starts_at))}. ${viewing.status === "confirmed" ? "Agency-gu wuu xaqiijiyey." : "Weli wuxuu sugayaa xaqiijinta agency-ga."}`
+      : "Weli ma helin viewing kuu diiwaangashan oo soo socda. Fadlan dooro property-ga, taariikhda iyo saacadda aad rabto.";
+    const outboundId = await sendWhatsAppText(agencyId, phone, reply);
+    await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: reply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId, viewing_id: viewing?.id ?? null, viewing_status: viewing?.status ?? null } });
+    await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
+    return NextResponse.json({ received: true, viewingId: viewing?.id ?? null, viewingStatus: viewing?.status ?? null });
+  }
   if (conversation.status === "human_active") return NextResponse.json({ received: true, ai_paused: true });
 
   const [{ data: settings }, { data: history }] = await Promise.all([
