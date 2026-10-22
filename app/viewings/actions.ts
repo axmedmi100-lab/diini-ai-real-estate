@@ -93,7 +93,15 @@ export async function updateViewing(formData: FormData) {
         processing_started_at: null,
         provider_message_id: null,
       })).filter((item) => new Date(item.scheduled_for).getTime() > now);
-      if (reminders.length) await supabase.from("follow_ups").upsert(reminders, { onConflict: "viewing_id,reminder_offset_minutes" });
+      if (reminders.length) {
+        const { error: reminderError } = await supabase.from("follow_ups").upsert(reminders, { onConflict: "viewing_id,reminder_offset_minutes" });
+        if (reminderError) {
+          await supabase.from("notifications").insert({ agency_id: agency.id, type: "viewing_reminder_failed", title: "Viewing reminder lama jadwalin", body: reminderError.message, entity_type: "viewing", entity_id: viewingId });
+          confirmationNotice = "Viewing-ga waa la kaydiyey, laakiin reminders-ka lama jadwalin.";
+        } else if (existingViewing.status === "confirmed") {
+          confirmationNotice = "Viewing reminders-ka waa la jadwaleeyey.";
+        }
+      }
     }
   } else {
     await supabase.from("follow_ups").update({ status: "cancelled" }).eq("agency_id", agency.id).eq("viewing_id", viewingId).in("status", ["pending", "processing"]);
