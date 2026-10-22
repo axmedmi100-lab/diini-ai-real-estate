@@ -207,15 +207,15 @@ export async function POST(request: Request) {
 
   const [{ data: settings }, { data: history }] = await Promise.all([
     supabase.from("ai_settings").select("is_enabled,human_handoff_enabled,supported_languages,qualification_fields,business_rules").eq("agency_id", agencyId).maybeSingle(),
-    supabase.from("messages").select("sender_type,message").eq("agency_id", agencyId).eq("conversation_id", conversation.id).order("created_at", { ascending: false }).limit(10),
+    supabase.from("messages").select("sender_type,message").eq("agency_id", agencyId).eq("conversation_id", conversation.id).order("created_at", { ascending: false }).limit(30),
   ]);
   if (!settings?.is_enabled) return NextResponse.json({ received: true, ai_disabled: true });
   const orderedHistory = (history ?? []).reverse();
   const extraction = await extractChatRequirements(message, orderedHistory, { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
   const requirement = extraction.data;
   const showRequest = asksToSeeProperty(message);
-  const awaitingViewingTime = orderedHistory.slice(-4).some((item) => item.sender_type === "ai" && /(?:taariikhda iyo saacadda viewing-ka|viewing date and time)/i.test(item.message));
-  const conflictPrompt = orderedHistory.slice(-6).reverse().find((item) => item.sender_type === "ai" && /(?:Waqtigaas viewing kale|Waxaad dooran kartaa|please choose another time)/i.test(item.message));
+  const awaitingViewingTime = orderedHistory.slice(-12).some((item) => item.sender_type === "ai" && /(?:taariikhda iyo saacadda viewing-ka|viewing date and time)/i.test(item.message));
+  const conflictPrompt = orderedHistory.toReversed().find((item) => item.sender_type === "ai" && /(?:Waqtigaas viewing kale|Waxaad dooran kartaa|please choose another time)/i.test(item.message));
   const parsedViewingTime = parseSomaliViewingTime(message) ?? (conflictPrompt ? parseSomaliViewingTime(`${conflictPrompt.message} ${message}`) : null);
   const viewingRequest = asksForViewing(message) || Boolean(parsedViewingTime && (awaitingViewingTime || conflictPrompt));
   await supabase.from("leads").update({ name: requirement.name || customerName || undefined, phone: requirement.phone || phone, email: requirement.email || undefined, purpose: requirement.purpose || undefined, district: requirement.district || undefined, budget_min: requirement.budget_min ?? undefined, budget_max: requirement.budget_max ?? undefined, bedrooms: requirement.bedrooms ?? undefined, property_type: requirement.property_type || undefined, furnished: requirement.furnished ?? undefined }).eq("id", lead.id).eq("agency_id", agencyId);
