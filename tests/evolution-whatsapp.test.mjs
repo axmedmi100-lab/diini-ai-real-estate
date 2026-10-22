@@ -31,3 +31,12 @@ test("Evolution property matches send details and image media without accidental
   assert.match(webhook, /evolution\.property_search_failed/);
 });
 
+test("Evolution viewing requests create a real booking instead of a generic reply", async () => {
+  const webhook = await read("app/api/webhooks/evolution/route.ts");
+  assert.match(webhook, /asksForViewing/);
+  assert.match(webhook, /parseSomaliViewingTime/);
+  assert.match(webhook, /request_whatsapp_viewing/);
+  assert.match(webhook, /evolution\.viewing_failed/);
+  assert.match(webhook, /viewingId/);
+});
+
