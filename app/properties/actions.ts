@@ -142,6 +142,11 @@ export async function updateProperty(formData: FormData) {
     const oldPaths = storedFiles?.map((file) => `${agency.id}/${propertyId}/${file.name}`).filter((path) => !newPaths.includes(path)) ?? [];
     if (oldPaths.length) await supabase.storage.from("property-images").remove(oldPaths);
   }
+  if (payload.status === "available") {
+    const { data: outreachCount, error: outreachError } = await supabase.rpc("schedule_property_match_outreach", { target_agency_id: agency.id, target_property_id: propertyId });
+    if (outreachError) redirect(`/properties/${propertyId}?message=${encodeURIComponent("Property-ga waa la cusboonaysiiyey, laakiin matched-lead outreach lama jadwalin.")}`);
+    redirect(`/properties/${propertyId}?message=${encodeURIComponent(`Property-ga waa la cusboonaysiiyey; ${Number(outreachCount ?? 0)} matched lead outreach ayaa la jadwaleeyey.`)}`);
+  }
   redirect(`/properties/${propertyId}?message=Property-ga waa la cusboonaysiiyey.`);
 }
 
