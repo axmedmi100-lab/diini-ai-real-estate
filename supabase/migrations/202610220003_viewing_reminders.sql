@@ -6,7 +6,7 @@ alter table public.follow_ups
 
 alter table public.follow_ups drop constraint if exists follow_ups_viewing_id_fkey;
 alter table public.follow_ups add constraint follow_ups_viewing_id_fkey
-  foreign key (viewing_id, agency_id) references public.viewings(id, agency_id) on delete cascade;
+  foreign key (viewing_id) references public.viewings(id) on delete cascade;
 
 alter table public.follow_ups drop constraint if exists follow_ups_reminder_offset_check;
 alter table public.follow_ups add constraint follow_ups_reminder_offset_check
