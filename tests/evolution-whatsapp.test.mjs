@@ -25,7 +25,7 @@ test("Evolution outbound messages use a server-only API key", async () => {
 test("Evolution property matches send details and image media without accidental handoff", async () => {
   const webhook = await read("app/api/webhooks/evolution/route.ts");
   assert.match(webhook, /asksToSeeProperty/);
-  assert.match(webhook, /!showRequest && requirement\.human_handoff/);
+  assert.match(webhook, /!showRequest && !viewingRequest && requirement\.human_handoff/);
   assert.match(webhook, /sendWhatsAppImage/);
   assert.match(webhook, /propertyImages\(selectedProperty\)/);
   assert.match(webhook, /evolution\.property_search_failed/);
@@ -44,6 +44,7 @@ test("Evolution viewing requests create a real booking instead of a generic repl
   assert.match(webhook, /recentPropertyId/);
   assert.match(webhook, /awaitingViewingTime/);
   assert.match(webhook, /parsedViewingTime && awaitingViewingTime/);
+  assert.match(webhook, /!viewingRequest && requirement\.human_handoff/);
   assert.match(webhook, /ball\?an/);
   assert.match(webhook, /viewing time conflict/);
   assert.match(webhook, /viewingConflict/);
