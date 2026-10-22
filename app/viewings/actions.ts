@@ -106,6 +106,29 @@ export async function updateViewing(formData: FormData) {
   } else {
     await supabase.from("follow_ups").update({ status: "cancelled" }).eq("agency_id", agency.id).eq("viewing_id", viewingId).in("status", ["pending", "processing"]);
   }
+  if (["completed", "no_show"].includes(status) && existingViewing.status !== status) {
+    const [{ data: property }, { data: conversation }] = await Promise.all([
+      supabase.from("properties").select("title").eq("id", existingViewing.property_id).eq("agency_id", agency.id).maybeSingle(),
+      supabase.from("conversations").select("id,external_thread_id").eq("agency_id", agency.id).eq("lead_id", existingViewing.lead_id).eq("channel", "whatsapp").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    if (conversation?.external_thread_id) {
+      const propertyTitle = property?.title || "property-ga";
+      const outcomeMessage = status === "completed"
+        ? `Viewing-ga ${propertyTitle} wuu dhammaaday. Ma xiisaynaysaa property-gan, mise waxaad rabtaa inaan kuu raadiyo mid kale?`
+        : `Waxaad seegtay viewing-gii ${propertyTitle}. Ma rabtaa inaan kuu qabanno taariikh iyo saacad kale?`;
+      try {
+        const providerMessageId = await sendWhatsAppText(agency.id, conversation.external_thread_id, outcomeMessage);
+        await Promise.all([
+          supabase.from("messages").insert({ agency_id: agency.id, conversation_id: conversation.id, sender_type: "system", message: outcomeMessage, metadata: { provider: "evolution_whatsapp", provider_message_id: providerMessageId, viewing_id: viewingId, status } }),
+          supabase.rpc("record_whatsapp_usage", { target_agency_id: agency.id, message_count: 1 }),
+        ]);
+        confirmationNotice = status === "completed" ? "Viewing-ga waa la dhammaystiray; customer-ka follow-up ayaa loo diray." : "No-show waa la kaydiyey; customer-ka rebooking ayaa loo diray.";
+      } catch {
+        await supabase.from("notifications").insert({ agency_id: agency.id, type: "whatsapp_send_failed", title: "Viewing outcome message failed", body: "Status-ka waa la kaydiyey, laakiin WhatsApp follow-up-ka lama dirin.", entity_type: "viewing", entity_id: viewingId });
+        confirmationNotice = "Status-ka waa la kaydiyey, laakiin WhatsApp follow-up-ka lama dirin.";
+      }
+    }
+  }
   redirect(`/viewings/${viewingId}?message=${encodeURIComponent(confirmationNotice)}`);
 }
 
