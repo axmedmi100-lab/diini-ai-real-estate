@@ -26,3 +26,9 @@ test("production scheduler runs the authenticated follow-up worker", async () =>
   assert.match(compose, /api\/cron\/follow-ups/);
 });
 
+test("follow-up UI and manual scheduling use the agency timezone", async () => {
+  const [page, actions] = await Promise.all([read("app/follow-ups/page.tsx"), read("app/follow-ups/actions.ts")]);
+  assert.match(page, /formatAgencyDateTime\(item\.scheduled_for, agency\.timezone\)/);
+  assert.match(actions, /agencyDateTimeLocalToUtc\(text\(formData, "scheduled_for"\), agency\.timezone\)/);
+});
+
