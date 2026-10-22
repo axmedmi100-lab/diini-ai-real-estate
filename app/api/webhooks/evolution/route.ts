@@ -101,7 +101,7 @@ function parseSomaliViewingTime(message: string, now = new Date()) {
     year = Number(explicitDate[1]); month = Number(explicitDate[2]); day = Number(explicitDate[3]); dayOffset = 0;
   } else {
     const monthNames: Record<string, number> = { jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12 };
-    const namedDate = lower.match(/\b([a-z]+)[-\s\/]([0-3]?\d)(?:st|nd|rd|th)?[-\s,\/](20\d{2})\b|\b([0-3]?\d)(?:st|nd|rd|th)?[-\s\/]([a-z]+)[-\s,\/](20\d{2})\b/i);
+    const namedDate = lower.match(/\b([a-z]+)[-\s\/]([0-3]?\d)(?:st|nd|rd|th)?(?:\s*,?\s*|-)(20\d{2})\b|\b([0-3]?\d)(?:st|nd|rd|th)?[-\s\/]([a-z]+)(?:\s*,?\s*|-)(20\d{2})\b/i);
     const namedMonth = namedDate ? monthNames[(namedDate[1] ?? namedDate[5]).toLowerCase()] : null;
     if (namedDate && namedMonth) {
       year = Number(namedDate[3] ?? namedDate[6]); month = namedMonth; day = Number(namedDate[2] ?? namedDate[4]); dayOffset = 0;
@@ -241,7 +241,7 @@ export async function POST(request: Request) {
     }
     properties = (data ?? []) as MatchedProperty[];
   }
-  const handoff = !showRequest && requirement.human_handoff && settings.human_handoff_enabled;
+  const handoff = !showRequest && !viewingRequest && requirement.human_handoff && settings.human_handoff_enabled;
   let selectedProperty: MatchedProperty | undefined = properties[0];
   if (viewingRequest && !selectedProperty) {
     const { data: recentPropertyMessages } = await supabase.from("messages")
