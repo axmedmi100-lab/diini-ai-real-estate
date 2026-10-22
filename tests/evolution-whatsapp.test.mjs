@@ -47,6 +47,8 @@ test("Evolution viewing requests create a real booking instead of a generic repl
   assert.match(webhook, /ball\?an/);
   assert.match(webhook, /viewing time conflict/);
   assert.match(webhook, /viewingConflict/);
+  assert.match(webhook, /occupiedTimes/);
+  assert.match(webhook, /Math\.abs\(taken - candidate\)/);
 });
 
 test("Evolution confirms an existing upcoming viewing without creating another booking or handoff", async () => {
