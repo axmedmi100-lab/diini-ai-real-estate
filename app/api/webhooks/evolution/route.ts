@@ -231,7 +231,28 @@ export async function POST(request: Request) {
     properties = (data ?? []) as MatchedProperty[];
   }
   const handoff = !showRequest && requirement.human_handoff && settings.human_handoff_enabled;
-  const selectedProperty = properties[0];
+  let selectedProperty: MatchedProperty | undefined = properties[0];
+  if (viewingRequest && !selectedProperty) {
+    const { data: recentPropertyMessages } = await supabase.from("messages")
+      .select("metadata")
+      .eq("agency_id", agencyId)
+      .eq("conversation_id", conversation.id)
+      .eq("sender_type", "ai")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    const recentPropertyId = recentPropertyMessages
+      ?.map((item) => item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata) ? (item.metadata as Record<string, unknown>).property_id : null)
+      .find((propertyId): propertyId is string => typeof propertyId === "string" && /^[0-9a-f-]{36}$/i.test(propertyId));
+    if (recentPropertyId) {
+      const { data: recentProperty } = await supabase.from("properties")
+        .select("id,title,property_type,purpose,district,price,currency,bedrooms,bathrooms,furnished,image_urls")
+        .eq("id", recentPropertyId)
+        .eq("agency_id", agencyId)
+        .eq("status", "available")
+        .maybeSingle();
+      selectedProperty = (recentProperty as MatchedProperty | null) ?? undefined;
+    }
+  }
   if (viewingRequest) {
     const startsAt = parseSomaliViewingTime(message);
     const bookingReply = !selectedProperty
