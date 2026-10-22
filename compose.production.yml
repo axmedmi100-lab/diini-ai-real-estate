@@ -31,6 +31,32 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  scheduler:
+    container_name: diini-real-estate-scheduler
+    image: diini-real-estate-app:latest
+    env_file:
+      - .env.production
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        while true; do
+          wget --quiet --tries=1 --timeout=20
+          --header="Authorization: Bearer $$CRON_SECRET"
+          http://app:3000/api/cron/follow-ups -O - >/dev/null 2>&1 || true;
+          sleep 60;
+        done
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - app_internal
+    restart: unless-stopped
+    init: true
+    mem_limit: 128m
+    cpus: 0.10
+    security_opt:
+      - no-new-privileges:true
+
 networks:
   app_internal:
     name: diini_real_estate_internal
