@@ -267,6 +267,14 @@ export async function POST(request: Request) {
     if (selectedProperty && startsAt) {
       const result = await supabase.rpc("request_whatsapp_viewing", { target_agency_id: agencyId, target_conversation_id: conversation.id, target_property_id: selectedProperty.id, requested_starts_at: startsAt });
       if (result.error) {
+        if (/viewing time conflict/i.test(result.error.message)) {
+          const alternatives = [1, 2].map((hours) => new Intl.DateTimeFormat("so-SO", { timeZone: "Africa/Mogadishu", dateStyle: "medium", timeStyle: "short" }).format(new Date(new Date(startsAt).getTime() + hours * 60 * 60_000)));
+          const conflictReply = `Waqtigaas viewing kale ayaa ${selectedProperty.title} uga qoran. Waxaad dooran kartaa ${alternatives[0]} ama ${alternatives[1]}, ama ii sheeg waqti kale.`;
+          const outboundId = await sendWhatsAppText(agencyId, phone, conflictReply);
+          await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: conflictReply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId, property_id: selectedProperty.id, conflict: true } });
+          await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
+          return NextResponse.json({ received: true, viewingConflict: true });
+        }
         logServerEvent("error", "evolution.viewing_failed", { requestId: id, agencyId, error: result.error.message });
         return new NextResponse("Viewing request failed", { status: 500 });
       }
