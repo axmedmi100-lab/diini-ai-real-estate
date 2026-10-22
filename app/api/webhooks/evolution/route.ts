@@ -78,14 +78,15 @@ function canonicalDistrict(value: string | null) {
 
 function parseSomaliViewingTime(message: string, now = new Date()) {
   const lower = message.toLowerCase();
-  const time = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(subaxnimo|duhurnimo|galabnimo|fiidnimo|habeenimo|am|pm)?/i);
+  const timeMatches = [...lower.matchAll(/(\d{1,2})(?::(\d{2}))\s*(aroort(?:ii|nimo)?|subax(?:ii|nimo)?|duhurnimo|galabnimo|fiidnimo|habeenimo|am|pm)?|\b(\d{1,2})\s*(aroort(?:ii|nimo)?|subax(?:ii|nimo)?|duhurnimo|galabnimo|fiidnimo|habeenimo|am|pm)\b/gi)];
+  const time = timeMatches.at(-1);
   if (!time) return null;
-  let hour = Number(time[1]);
+  let hour = Number(time[1] ?? time[4]);
   const minute = Number(time[2] ?? 0);
-  const period = time[3]?.toLowerCase();
+  const period = (time[3] ?? time[5])?.toLowerCase();
   if (hour > 23 || minute > 59) return null;
   if (["galabnimo", "fiidnimo", "habeenimo", "pm"].includes(period ?? "") && hour < 12) hour += 12;
-  if (["subaxnimo", "am"].includes(period ?? "") && hour === 12) hour = 0;
+  if (/^(?:aroort|subax)|^am$/.test(period ?? "") && hour === 12) hour = 0;
 
   const localParts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Mogadishu", year: "numeric", month: "2-digit", day: "2-digit",
@@ -95,9 +96,16 @@ function parseSomaliViewingTime(message: string, now = new Date()) {
   let month = part("month");
   let day = part("day");
   let dayOffset = /\b(berri|tomorrow)\b/i.test(lower) ? 1 : /\b(maanta|today)\b/i.test(lower) ? 0 : -1;
-  const explicitDate = lower.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  const explicitDate = lower.match(/\b(20\d{2})[-\/]([01]?\d)[-\/]([0-3]?\d)\b/);
   if (explicitDate) {
     year = Number(explicitDate[1]); month = Number(explicitDate[2]); day = Number(explicitDate[3]); dayOffset = 0;
+  } else {
+    const monthNames: Record<string, number> = { jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12 };
+    const namedDate = lower.match(/\b([a-z]+)[-\s\/]([0-3]?\d)(?:st|nd|rd|th)?[-\s,\/](20\d{2})\b|\b([0-3]?\d)(?:st|nd|rd|th)?[-\s\/]([a-z]+)[-\s,\/](20\d{2})\b/i);
+    const namedMonth = namedDate ? monthNames[(namedDate[1] ?? namedDate[5]).toLowerCase()] : null;
+    if (namedDate && namedMonth) {
+      year = Number(namedDate[3] ?? namedDate[6]); month = namedMonth; day = Number(namedDate[2] ?? namedDate[4]); dayOffset = 0;
+    }
   }
   if (dayOffset < 0) return null;
   const result = new Date(Date.UTC(year, month - 1, day + dayOffset, hour - 3, minute));
