@@ -43,7 +43,9 @@ test("Evolution viewing requests create a real booking instead of a generic repl
   assert.match(webhook, /recentPropertyMessages/);
   assert.match(webhook, /recentPropertyId/);
   assert.match(webhook, /awaitingViewingTime/);
-  assert.match(webhook, /parsedViewingTime && awaitingViewingTime/);
+  assert.match(webhook, /parsedViewingTime && \(awaitingViewingTime \|\| conflictPrompt\)/);
+  assert.match(webhook, /conflictPrompt/);
+  assert.match(webhook, /parseSomaliViewingTime\(`\$\{conflictPrompt\.message\} \$\{message\}`\)/);
   assert.match(webhook, /!viewingRequest && requirement\.human_handoff/);
   assert.match(webhook, /ball\?an/);
   assert.match(webhook, /viewing time conflict/);
