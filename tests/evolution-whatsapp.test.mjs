@@ -29,6 +29,8 @@ test("Evolution property matches send details and image media without accidental
   assert.match(webhook, /sendWhatsAppImage/);
   assert.match(webhook, /propertyImages\(selectedProperty\)/);
   assert.match(webhook, /evolution\.property_search_failed/);
+  assert.match(webhook, /canonicalDistrict/);
+  assert.match(webhook, /await search\(null\)/);
 });
 
 test("Evolution viewing requests create a real booking instead of a generic reply", async () => {
