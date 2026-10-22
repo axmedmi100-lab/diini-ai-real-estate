@@ -40,9 +40,12 @@ services:
     command:
       - >-
         while true; do
-          wget --quiet --tries=1 --timeout=20
+          echo "[$$(date -Iseconds)] Running follow-up worker";
+          wget -qO- --timeout=20
           --header="Authorization: Bearer $$CRON_SECRET"
-          http://app:3000/api/cron/follow-ups -O - >/dev/null 2>&1 || true;
+          http://app:3000/api/cron/follow-ups
+          || echo "[$$(date -Iseconds)] Follow-up worker request failed";
+          echo;
           sleep 60;
         done
     depends_on:
