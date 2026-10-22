@@ -40,6 +40,8 @@ test("Evolution viewing requests create a real booking instead of a generic repl
   assert.match(webhook, /request_whatsapp_viewing/);
   assert.match(webhook, /evolution\.viewing_failed/);
   assert.match(webhook, /viewingId/);
+  assert.match(webhook, /recentPropertyMessages/);
+  assert.match(webhook, /recentPropertyId/);
 });
 
 test("Evolution confirms an existing upcoming viewing without creating another booking or handoff", async () => {
