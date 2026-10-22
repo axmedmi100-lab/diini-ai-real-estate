@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { logServerEvent, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendWhatsAppText } from "@/lib/whatsapp/meta";
+import { sendWhatsAppImage, sendWhatsAppText } from "@/lib/whatsapp/meta";
 
 type ClaimedFollowUp = {
   id: string; agency_id: string; conversation_id: string | null;
@@ -11,6 +11,7 @@ type ClaimedFollowUp = {
   external_thread_id: string | null;
   conversation_status: "open" | "ai_active" | "human_active" | "closed" | null;
   customer_opted_out: boolean;
+  property_id: string | null; property_title: string | null; property_image_url: string | null;
 };
 
 function authorized(request: Request) {
@@ -46,7 +47,9 @@ async function runWorker(request: Request) {
       if (item.channel === "whatsapp") {
         if (!item.external_thread_id) throw new Error("WhatsApp conversation ama recipient lama helin.");
         if (item.conversation_status === "human_active") throw new Error("Human agent ayaa conversation-ka gacanta ku haya.");
-        providerMessageId = await sendWhatsAppText(item.agency_id, item.external_thread_id, item.message_template);
+        providerMessageId = item.property_image_url
+          ? await sendWhatsAppImage(item.agency_id, item.external_thread_id, item.property_image_url, item.message_template)
+          : await sendWhatsAppText(item.agency_id, item.external_thread_id, item.message_template);
         await supabase.rpc("record_whatsapp_usage", { target_agency_id: item.agency_id, message_count: 1 });
       } else if (item.channel === "website") {
         if (!item.conversation_id) throw new Error("Website conversation lama helin.");
@@ -75,3 +78,4 @@ async function runWorker(request: Request) {
 
 export async function GET(request: Request) { return runWorker(request); }
 export async function POST(request: Request) { return runWorker(request); }
+
