@@ -56,6 +56,38 @@ function asksToSeeProperty(message: string) {
   return /\b(i\s*tus|itus|soo\s+bandhig|sawir(?:ka|rada|ro)?|faahfaahin(?:ta)?|show\s+me|photos?|pictures?)\b/i.test(message);
 }
 
+function asksForViewing(message: string) {
+  return /\b(viewing|appointment|ballan|booqasho|daawasho|soo\s+arko|soo\s+arki|arkaa|arko|daawado)\b/i.test(message);
+}
+
+function parseSomaliViewingTime(message: string, now = new Date()) {
+  const lower = message.toLowerCase();
+  const time = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(subaxnimo|duhurnimo|galabnimo|fiidnimo|habeenimo|am|pm)?/i);
+  if (!time) return null;
+  let hour = Number(time[1]);
+  const minute = Number(time[2] ?? 0);
+  const period = time[3]?.toLowerCase();
+  if (hour > 23 || minute > 59) return null;
+  if (["galabnimo", "fiidnimo", "habeenimo", "pm"].includes(period ?? "") && hour < 12) hour += 12;
+  if (["subaxnimo", "am"].includes(period ?? "") && hour === 12) hour = 0;
+
+  const localParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Mogadishu", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: string) => Number(localParts.find((item) => item.type === type)?.value);
+  let year = part("year");
+  let month = part("month");
+  let day = part("day");
+  let dayOffset = /\b(berri|tomorrow)\b/i.test(lower) ? 1 : /\b(maanta|today)\b/i.test(lower) ? 0 : -1;
+  const explicitDate = lower.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  if (explicitDate) {
+    year = Number(explicitDate[1]); month = Number(explicitDate[2]); day = Number(explicitDate[3]); dayOffset = 0;
+  }
+  if (dayOffset < 0) return null;
+  const result = new Date(Date.UTC(year, month - 1, day + dayOffset, hour - 3, minute));
+  return result.getTime() > now.getTime() ? result.toISOString() : null;
+}
+
 function propertyCaption(property: MatchedProperty, language: "so" | "en") {
   const price = `${property.currency || "USD"} ${Number(property.price).toLocaleString()}`;
   if (language === "en") return `🏠 ${property.title}\n📍 ${property.district}\n💵 ${price}\n🛏 ${property.bedrooms ?? "—"} bedrooms · 🚿 ${property.bathrooms ?? "—"} bathrooms\n🪑 Furnished: ${property.furnished ? "Yes" : "No"}`;
@@ -101,9 +133,9 @@ export async function POST(request: Request) {
   }
 
   let { data: conversation } = await supabase.from("conversations").select("id,status,lead_id").eq("agency_id", agencyId).eq("channel", "whatsapp").eq("external_thread_id", phone).maybeSingle();
-  let lead: { id: string; status: string } | null = null;
+  let lead: { id: string; status: string; purpose?: "rent" | "sale" | null; district?: string | null; budget_min?: number | null; budget_max?: number | null; bedrooms?: number | null; property_type?: string | null; furnished?: boolean | null } | null = null;
   if (conversation?.lead_id) {
-    const result = await supabase.from("leads").select("id,status").eq("id", conversation.lead_id).eq("agency_id", agencyId).maybeSingle();
+    const result = await supabase.from("leads").select("id,status,purpose,district,budget_min,budget_max,bedrooms,property_type,furnished").eq("id", conversation.lead_id).eq("agency_id", agencyId).maybeSingle();
     lead = result.data;
   }
   const customerName = payload.data?.pushName?.trim() || null;
@@ -130,11 +162,21 @@ export async function POST(request: Request) {
   const extraction = await extractChatRequirements(message, (history ?? []).reverse(), { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
   const requirement = extraction.data;
   const showRequest = asksToSeeProperty(message);
+  const viewingRequest = asksForViewing(message);
   await supabase.from("leads").update({ name: requirement.name || customerName || undefined, phone: requirement.phone || phone, email: requirement.email || undefined, purpose: requirement.purpose || undefined, district: requirement.district || undefined, budget_min: requirement.budget_min ?? undefined, budget_max: requirement.budget_max ?? undefined, bedrooms: requirement.bedrooms ?? undefined, property_type: requirement.property_type || undefined, furnished: requirement.furnished ?? undefined }).eq("id", lead.id).eq("agency_id", agencyId);
-  const shouldSearch = (requirement.intent === "property_search" || showRequest) && Boolean(requirement.purpose || requirement.district || requirement.budget_max || requirement.bedrooms || requirement.property_type || requirement.furnished !== null);
+  const searchRequirement = {
+    purpose: requirement.purpose ?? lead.purpose ?? null,
+    district: requirement.district ?? lead.district ?? null,
+    budget_min: requirement.budget_min ?? lead.budget_min ?? null,
+    budget_max: requirement.budget_max ?? lead.budget_max ?? null,
+    bedrooms: requirement.bedrooms ?? lead.bedrooms ?? null,
+    property_type: requirement.property_type ?? lead.property_type ?? null,
+    furnished: requirement.furnished ?? lead.furnished ?? null,
+  };
+  const shouldSearch = (requirement.intent === "property_search" || showRequest || viewingRequest) && Boolean(searchRequirement.purpose || searchRequirement.district || searchRequirement.budget_max || searchRequirement.bedrooms || searchRequirement.property_type || searchRequirement.furnished !== null);
   let properties: MatchedProperty[] = [];
   if (shouldSearch) {
-    const { data, error } = await supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: requirement.purpose, wanted_district: requirement.district, min_budget: requirement.budget_min, max_budget: requirement.budget_max, min_bedrooms: requirement.bedrooms, wanted_property_type: requirement.property_type, wanted_furnished: requirement.furnished });
+    const { data, error } = await supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: searchRequirement.purpose, wanted_district: searchRequirement.district, min_budget: searchRequirement.budget_min, max_budget: searchRequirement.budget_max, min_bedrooms: searchRequirement.bedrooms, wanted_property_type: searchRequirement.property_type, wanted_furnished: searchRequirement.furnished });
     if (error) {
       logServerEvent("error", "evolution.property_search_failed", { requestId: id, agencyId, error: error.message });
       return new NextResponse("Property search failed", { status: 500 });
@@ -143,10 +185,31 @@ export async function POST(request: Request) {
   }
   const handoff = !showRequest && requirement.human_handoff && settings.human_handoff_enabled;
   const selectedProperty = properties[0];
+  if (viewingRequest) {
+    const startsAt = parseSomaliViewingTime(message);
+    const bookingReply = !selectedProperty
+      ? "Property-ga aad viewing-ka u rabto lama xaqiijin. Fadlan marka hore dooro property-ga aad rabto."
+      : !startsAt
+        ? "Fadlan ii sheeg taariikhda iyo saacadda viewing-ka, tusaale: berri 4:00 galabnimo."
+        : `Viewing-ga ${selectedProperty.title} waxaa loo codsaday ${new Intl.DateTimeFormat("so-SO", { timeZone: "Africa/Mogadishu", dateStyle: "medium", timeStyle: "short" }).format(new Date(startsAt))}. Agency-ga ayaa xaqiijin doona.`;
+    let viewingId: string | null = null;
+    if (selectedProperty && startsAt) {
+      const result = await supabase.rpc("request_whatsapp_viewing", { target_agency_id: agencyId, target_conversation_id: conversation.id, target_property_id: selectedProperty.id, requested_starts_at: startsAt });
+      if (result.error) {
+        logServerEvent("error", "evolution.viewing_failed", { requestId: id, agencyId, error: result.error.message });
+        return new NextResponse("Viewing request failed", { status: 500 });
+      }
+      viewingId = result.data;
+    }
+    const outboundId = await sendWhatsAppText(agencyId, phone, bookingReply);
+    await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: bookingReply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId, viewing_id: viewingId, property_id: selectedProperty?.id ?? null, starts_at: startsAt } });
+    await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
+    return NextResponse.json({ received: true, viewingId });
+  }
   const reply = handoff ? (requirement.language === "so" ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona." : "Your request for a human agent has been sent. Someone from the agency will contact you.") : selectedProperty ? propertyCaption(selectedProperty, requirement.language) : shouldSearch ? formatPropertyReply(requirement.language, properties.length) : requirement.reply;
   try {
     const outboundId = await sendWhatsAppText(agencyId, phone, reply);
-    await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: reply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId } });
+    await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: reply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId, property_id: selectedProperty?.id ?? null } });
     await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
     if (selectedProperty) {
       for (const [index, imageUrl] of propertyImages(selectedProperty).entries()) {
