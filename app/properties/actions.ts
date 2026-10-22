@@ -101,6 +101,11 @@ export async function createProperty(formData: FormData) {
     await supabase.from("properties").delete().eq("id", propertyId).eq("agency_id", agency.id);
     redirect("/properties/new?error=Sawirrada lama kaydin; property-ga dib u isku day.");
   }
+  if (payload.status === "available") {
+    const { data: outreachCount, error: outreachError } = await supabase.rpc("schedule_property_match_outreach", { target_agency_id: agency.id, target_property_id: propertyId });
+    if (outreachError) redirect(`/properties/${propertyId}?message=${encodeURIComponent("Property-ga waa la abuuray, laakiin matched-lead outreach lama jadwalin.")}`);
+    redirect(`/properties/${propertyId}?message=${encodeURIComponent(`Property-ga waa la abuuray; ${Number(outreachCount ?? 0)} matched lead outreach ayaa la jadwaleeyey.`)}`);
+  }
   redirect(`/properties/${propertyId}?message=Property-ga waa la abuuray.`);
 }
 
@@ -150,3 +155,4 @@ export async function deleteProperty(formData: FormData) {
   if (files?.length) await supabase.storage.from("property-images").remove(files.map((file) => `${agency.id}/${propertyId}/${file.name}`));
   redirect("/properties?message=Property-ga waa la tirtiray.");
 }
+
