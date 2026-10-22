@@ -41,3 +41,11 @@ test("completed and no-show transitions send one customer outcome message", asyn
   assert.match(actions, /Viewing outcome message failed/);
 });
 
+test("dashboard viewing changes reject property and agent time conflicts", async () => {
+  const actions = await read("app/viewings/actions.ts");
+  assert.match(actions, /hasViewingConflict/);
+  assert.match(actions, /conflict\.property/);
+  assert.match(actions, /conflict\.agent/);
+  assert.match(actions, /viewing kale ayaa waqtigan uga qoran/);
+});
+
