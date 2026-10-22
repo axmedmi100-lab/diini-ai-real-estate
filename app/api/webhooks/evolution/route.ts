@@ -61,7 +61,19 @@ function asksForViewing(message: string) {
 }
 
 function asksForViewingStatus(message: string) {
-  return /(?:ma\s+la\s+(?:diiwaan(?:geliyey|galiyey|gashan)|qoray)|(?:viewing|booking|ballan|booqasho).{0,40}(?:xaalad|status|xaqiiji|confirmed|diiwaan(?:geliyey|galiyey|gashan)))/i.test(message);
+  return /(?:ma\s+la\s+(?:dii?waan(?:geliyey|galiyey|gashan)|qoray)|(?:viewing|booking|ballan|booqasho).{0,50}(?:goorma|dhacayaa|xaalad|status|xaqiiji|confirmed|dii?waan(?:geliyey|galiyey|gashan)))/i.test(message);
+}
+
+function canonicalDistrict(value: string | null) {
+  if (!value) return null;
+  const compact = value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+  const aliases: Record<string, string> = {
+    daarusalaam: "daaru salaam",
+    daaralsalaam: "daaru salaam",
+    darusalaam: "daaru salaam",
+    saytuunvillage: "saytuun village",
+  };
+  return aliases[compact] ?? value.trim();
 }
 
 function parseSomaliViewingTime(message: string, now = new Date()) {
@@ -197,7 +209,7 @@ export async function POST(request: Request) {
   await supabase.from("leads").update({ name: requirement.name || customerName || undefined, phone: requirement.phone || phone, email: requirement.email || undefined, purpose: requirement.purpose || undefined, district: requirement.district || undefined, budget_min: requirement.budget_min ?? undefined, budget_max: requirement.budget_max ?? undefined, bedrooms: requirement.bedrooms ?? undefined, property_type: requirement.property_type || undefined, furnished: requirement.furnished ?? undefined }).eq("id", lead.id).eq("agency_id", agencyId);
   const searchRequirement = {
     purpose: requirement.purpose ?? lead.purpose ?? null,
-    district: requirement.district ?? lead.district ?? null,
+    district: canonicalDistrict(requirement.district ?? lead.district ?? null),
     budget_min: requirement.budget_min ?? lead.budget_min ?? null,
     budget_max: requirement.budget_max ?? lead.budget_max ?? null,
     bedrooms: requirement.bedrooms ?? lead.bedrooms ?? null,
@@ -207,7 +219,11 @@ export async function POST(request: Request) {
   const shouldSearch = (requirement.intent === "property_search" || showRequest || viewingRequest) && Boolean(searchRequirement.purpose || searchRequirement.district || searchRequirement.budget_max || searchRequirement.bedrooms || searchRequirement.property_type || searchRequirement.furnished !== null);
   let properties: MatchedProperty[] = [];
   if (shouldSearch) {
-    const { data, error } = await supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: searchRequirement.purpose, wanted_district: searchRequirement.district, min_budget: searchRequirement.budget_min, max_budget: searchRequirement.budget_max, min_bedrooms: searchRequirement.bedrooms, wanted_property_type: searchRequirement.property_type, wanted_furnished: searchRequirement.furnished });
+    const search = (propertyType: string | null) => supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: searchRequirement.purpose, wanted_district: searchRequirement.district, min_budget: searchRequirement.budget_min, max_budget: searchRequirement.budget_max, min_bedrooms: searchRequirement.bedrooms, wanted_property_type: propertyType, wanted_furnished: searchRequirement.furnished });
+    let { data, error } = await search(searchRequirement.property_type);
+    if (!error && !(data?.length) && !requirement.property_type && searchRequirement.property_type) {
+      ({ data, error } = await search(null));
+    }
     if (error) {
       logServerEvent("error", "evolution.property_search_failed", { requestId: id, agencyId, error: error.message });
       return new NextResponse("Property search failed", { status: 500 });
