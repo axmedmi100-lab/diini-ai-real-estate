@@ -268,8 +268,16 @@ export async function POST(request: Request) {
       const result = await supabase.rpc("request_whatsapp_viewing", { target_agency_id: agencyId, target_conversation_id: conversation.id, target_property_id: selectedProperty.id, requested_starts_at: startsAt });
       if (result.error) {
         if (/viewing time conflict/i.test(result.error.message)) {
-          const alternatives = [1, 2].map((hours) => new Intl.DateTimeFormat("so-SO", { timeZone: "Africa/Mogadishu", dateStyle: "medium", timeStyle: "short" }).format(new Date(new Date(startsAt).getTime() + hours * 60 * 60_000)));
-          const conflictReply = `Waqtigaas viewing kale ayaa ${selectedProperty.title} uga qoran. Waxaad dooran kartaa ${alternatives[0]} ama ${alternatives[1]}, ama ii sheeg waqti kale.`;
+          const requestedTime = new Date(startsAt).getTime();
+          const { data: occupied } = await supabase.from("viewings").select("starts_at").eq("agency_id", agencyId).eq("property_id", selectedProperty.id).in("status", ["requested", "confirmed"]).gte("starts_at", startsAt).lt("starts_at", new Date(requestedTime + 5 * 60 * 60_000).toISOString());
+          const occupiedTimes = (occupied ?? []).map((item) => new Date(item.starts_at).getTime());
+          const alternatives = [1, 2, 3, 4]
+            .map((hours) => requestedTime + hours * 60 * 60_000)
+            .filter((candidate) => occupiedTimes.every((taken) => Math.abs(taken - candidate) >= 60 * 60_000))
+            .slice(0, 2)
+            .map((candidate) => new Intl.DateTimeFormat("so-SO", { timeZone: "Africa/Mogadishu", dateStyle: "medium", timeStyle: "short" }).format(new Date(candidate)));
+          const choices = alternatives.length ? ` Waxaad dooran kartaa ${alternatives.join(" ama ")}, ama ii sheeg waqti kale.` : " Fadlan ii sheeg waqti kale.";
+          const conflictReply = `Waqtigaas viewing kale ayaa ${selectedProperty.title} uga qoran.${choices}`;
           const outboundId = await sendWhatsAppText(agencyId, phone, conflictReply);
           await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: conflictReply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId, property_id: selectedProperty.id, conflict: true } });
           await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
