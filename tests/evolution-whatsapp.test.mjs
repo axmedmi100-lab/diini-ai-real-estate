@@ -66,3 +66,12 @@ test("Evolution confirms an existing upcoming viewing without creating another b
   assert.ok(webhook.indexOf("if (asksForViewingStatus(message))") < webhook.indexOf('if (conversation.status === "human_active")'));
 });
 
+test("Meta WhatsApp viewing replies use property outreach context instead of human handoff", async () => {
+  const webhook = await read("app/api/webhooks/whatsapp/route.ts");
+  assert.match(webhook, /asksForViewing/);
+  assert.match(webhook, /request_whatsapp_viewing/);
+  assert.match(webhook, /property_id/);
+  assert.match(webhook, /!viewingRequest && requirement\.human_handoff/);
+  assert.match(webhook, /Fadlan ii sheeg taariikhda iyo saacadda viewing-ka/);
+});
+
