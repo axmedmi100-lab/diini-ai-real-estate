@@ -57,7 +57,8 @@ function asksToSeeProperty(message: string) {
 }
 
 function asksForViewing(message: string) {
-  return /\b(viewing|appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|so{1,2}\s+arki|arkaa|arko|daawado)\b/i.test(message);
+  const normalized = message.normalize("NFKC").replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
+  return /\b(viewing|appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|so{1,2}\s+arki|arkaa|arko|daawado)\b/i.test(normalized);
 }
 
 function asksForViewingStatus(message: string) {
@@ -179,7 +180,9 @@ export async function POST(request: Request) {
   // Property-match outreach deliberately invites the customer to reply with
   // "Viewing". Handle that deterministic reply before AI classification and
   // before the human_active pause so it can never be mistaken for a handoff.
-  if (asksForViewing(message) && !parseSomaliViewingTime(message)) {
+  const explicitViewingRequest = asksForViewing(message);
+  logServerEvent("info", "evolution.route_decision", { requestId: id, agencyId, explicitViewingRequest, hasViewingTime: Boolean(parseSomaliViewingTime(message)), conversationStatus: conversation.status });
+  if (explicitViewingRequest && !parseSomaliViewingTime(message)) {
     const { data: recentPropertyMessages } = await supabase.from("messages")
       .select("metadata")
       .eq("agency_id", agencyId)
@@ -250,7 +253,7 @@ export async function POST(request: Request) {
   const awaitingViewingTime = orderedHistory.slice(-12).some((item) => item.sender_type === "ai" && /(?:taariikhda iyo saacadda viewing-ka|viewing date and time)/i.test(item.message));
   const conflictPrompt = orderedHistory.toReversed().find((item) => item.sender_type === "ai" && /(?:Waqtigaas viewing kale|Waxaad dooran kartaa|please choose another time)/i.test(item.message));
   const parsedViewingTime = parseSomaliViewingTime(message) ?? (conflictPrompt ? parseSomaliViewingTime(`${conflictPrompt.message} ${message}`) : null);
-  const viewingRequest = asksForViewing(message) || Boolean(parsedViewingTime && (awaitingViewingTime || conflictPrompt));
+  const viewingRequest = explicitViewingRequest || Boolean(parsedViewingTime && (awaitingViewingTime || conflictPrompt));
   await supabase.from("leads").update({ name: requirement.name || customerName || undefined, phone: requirement.phone || phone, email: requirement.email || undefined, purpose: requirement.purpose || undefined, district: requirement.district || undefined, budget_min: requirement.budget_min ?? undefined, budget_max: requirement.budget_max ?? undefined, bedrooms: requirement.bedrooms ?? undefined, property_type: requirement.property_type || undefined, furnished: requirement.furnished ?? undefined }).eq("id", lead.id).eq("agency_id", agencyId);
   const searchRequirement = {
     purpose: requirement.purpose ?? lead.purpose ?? null,
