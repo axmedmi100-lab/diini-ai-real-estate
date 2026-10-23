@@ -64,6 +64,23 @@ async function runWorker(request: Request) {
 
       const { error: completeError } = await supabase.rpc("complete_follow_up_delivery", { target_follow_up_id: item.id, target_provider_message_id: providerMessageId });
       if (completeError) throw completeError;
+      if (item.channel === "whatsapp" && item.conversation_id) {
+        const { error: historyError } = await supabase.from("messages").insert({
+          agency_id: item.agency_id,
+          conversation_id: item.conversation_id,
+          sender_type: "ai",
+          message: item.message_template,
+          metadata: {
+            follow_up_id: item.id,
+            property_id: item.property_id,
+            property_title: item.property_title,
+            provider: "evolution_whatsapp",
+            provider_message_id: providerMessageId,
+            outreach_kind: item.property_id ? "property_match" : "follow_up",
+          },
+        });
+        if (historyError) logServerEvent("error", "follow_up_worker.history_failed", { requestId: id, followUpId: item.id, code: historyError.code });
+      }
       summary.sent += 1;
     } catch (deliveryError) {
       const message = deliveryError instanceof Error ? deliveryError.message : "Delivery failed";
