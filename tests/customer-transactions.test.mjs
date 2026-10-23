@@ -35,3 +35,16 @@ test("customer conversion form only offers statuses accepted by the transaction 
   assert.match(leadActions, /\["pending", "completed"\]\.includes\(transactionStatus\)/);
 });
 
+test("customer profile can update payments and complete a deal safely", async () => {
+  const page = await read("app/customers/[id]/page.tsx");
+  const actions = await read("app/customers/actions.ts");
+
+  assert.match(page, /updatePropertyTransaction/);
+  assert.match(page, /Lacagta la bixiyey/);
+  assert.match(page, /option value="completed">Completed/);
+  assert.match(actions, /deposit > totalPrice/);
+  assert.match(actions, /status === "completed" && deposit !== totalPrice/);
+  assert.match(actions, /from\("property_transactions"\)\.update/);
+  assert.match(actions, /\.eq\("customer_id", customerId\)\.eq\("agency_id", agency\.id\)/);
+});
+
