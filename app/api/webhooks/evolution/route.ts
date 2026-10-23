@@ -59,7 +59,7 @@ function asksToSeeProperty(message: string) {
 function asksForViewing(message: string) {
   const normalized = message.normalize("NFKC").replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
   const normalizedLower = normalized.toLowerCase();
-  if (normalizedLower === "viewing" || Buffer.from(normalized, "utf8").toString("hex") === "56696577696e67") return true;
+  if (normalizedLower === "viewing" || normalizedLower === "veiwing") return true;
   return /\b(appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|so{1,2}\s+arki|arkaa|arko|daawado)\b/i.test(normalized);
 }
 
