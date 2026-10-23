@@ -27,6 +27,9 @@ test("follow-up worker sends a property image when outreach has one", async () =
   const migration = await read("supabase/migrations/202610220005_property_match_outreach.sql");
   assert.match(worker, /sendWhatsAppImage/);
   assert.match(worker, /item\.property_image_url/);
+  assert.match(worker, /follow_up_worker\.history_failed/);
+  assert.match(worker, /property_id: item\.property_id/);
+  assert.match(worker, /outreach_kind: item\.property_id \? "property_match" : "follow_up"/);
   assert.match(migration, /p\.image_urls->>0/);
   assert.match(migration, /grant execute on function public\.claim_due_follow_ups\(integer\) to service_role/);
 });
