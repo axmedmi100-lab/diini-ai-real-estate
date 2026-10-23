@@ -98,7 +98,7 @@ function parseSomaliViewingTime(message: string, now = new Date()) {
   let year = part("year");
   let month = part("month");
   let day = part("day");
-  let dayOffset = /\b(berri|tomorrow)\b/i.test(lower) ? 1 : /\b(maanta|today)\b/i.test(lower) ? 0 : -1;
+  let dayOffset = /\b(ber{1,2}i|tomorrow)\b/i.test(lower) ? 1 : /\b(maanta|today)\b/i.test(lower) ? 0 : -1;
   const explicitDate = lower.match(/\b(20\d{2})[-\/]([01]?\d)[-\/]([0-3]?\d)\b/);
   if (explicitDate) {
     year = Number(explicitDate[1]); month = Number(explicitDate[2]); day = Number(explicitDate[3]); dayOffset = 0;
