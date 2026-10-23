@@ -31,3 +31,21 @@ export async function updateCustomer(formData: FormData) {
   redirect(`/customers/${customerId}?message=Customer-ka waa la cusboonaysiiyey.`);
 }
 
+export async function updatePropertyTransaction(formData: FormData) {
+  const { supabase, membership, agency } = await getAgencyWorkspace();
+  const customerId = value(formData, "customer_id");
+  const transactionId = value(formData, "transaction_id");
+  if (!new Set(["owner", "admin", "manager", "agent"]).has(membership.role)) redirect(`/customers/${customerId}?error=Ma lihid oggolaanshaha transaction-ka.`);
+  const deposit = Number(value(formData, "deposit"));
+  const status = value(formData, "status");
+  if (!customerId || !transactionId || !Number.isFinite(deposit) || deposit < 0 || !["pending", "completed", "cancelled"].includes(status)) redirect(`/customers/${customerId}?error=Xogta transaction-ka sax ma aha.`);
+  const { data: transaction } = await supabase.from("property_transactions").select("id,total_price").eq("id", transactionId).eq("customer_id", customerId).eq("agency_id", agency.id).maybeSingle();
+  if (!transaction) redirect(`/customers/${customerId}?error=Transaction-ka lama helin.`);
+  const totalPrice = Number(transaction.total_price);
+  if (deposit > totalPrice) redirect(`/customers/${customerId}?error=Lacagta la bixiyey kama badnaan karto total-ka.`);
+  if (status === "completed" && deposit !== totalPrice) redirect(`/customers/${customerId}?error=Si deal-ka loo dhammeeyo, lacagta la bixiyey waa inay la mid noqotaa total-ka.`);
+  const { error } = await supabase.from("property_transactions").update({ deposit, status, notes: value(formData, "transaction_notes") || null }).eq("id", transactionId).eq("customer_id", customerId).eq("agency_id", agency.id);
+  if (error) redirect(`/customers/${customerId}?error=Transaction-ka lama cusboonaysiin karin.`);
+  redirect(`/customers/${customerId}?message=${status === "completed" ? "Deal-ka waa la dhammeeyey." : "Transaction-ka waa la cusboonaysiiyey."}`);
+}
+
