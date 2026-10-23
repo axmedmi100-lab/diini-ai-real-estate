@@ -190,22 +190,24 @@ export async function POST(request: Request) {
     const recentPropertyId = recentPropertyMessages
       ?.map((item) => item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata) ? (item.metadata as Record<string, unknown>).property_id : null)
       .find((propertyId): propertyId is string => typeof propertyId === "string" && /^[0-9a-f-]{36}$/i.test(propertyId));
+    let property: { id: string; title: string } | null = null;
     if (recentPropertyId) {
-      const { data: property } = await supabase.from("properties")
+      const { data } = await supabase.from("properties")
         .select("id,title")
         .eq("id", recentPropertyId)
         .eq("agency_id", agencyId)
         .eq("status", "available")
         .maybeSingle();
-      if (property) {
-        const reply = `Fadlan ii sheeg taariikhda iyo saacadda viewing-ka ${property.title}, tusaale: berri 4:00 galabnimo.`;
-        const outboundId = await sendWhatsAppText(agencyId, phone, reply);
-        await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: reply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId, property_id: property.id, awaiting_viewing_time: true } });
-        await supabase.from("conversations").update({ status: "ai_active" }).eq("id", conversation.id).eq("agency_id", agencyId);
-        await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
-        return NextResponse.json({ received: true, awaitingViewingTime: true, propertyId: property.id });
-      }
+      property = data;
     }
+    const reply = property
+      ? `Fadlan ii sheeg taariikhda iyo saacadda viewing-ka ${property.title}, tusaale: berri 4:00 galabnimo.`
+      : "Waan kuu diyaarinayaa viewing-ka. Fadlan ii sheeg taariikhda iyo saacadda aad rabto, tusaale: berri 4:00 galabnimo.";
+    const outboundId = await sendWhatsAppText(agencyId, phone, reply);
+    await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: reply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId, property_id: property?.id ?? recentPropertyId ?? null, awaiting_viewing_time: true } });
+    await supabase.from("conversations").update({ status: "ai_active" }).eq("id", conversation.id).eq("agency_id", agencyId);
+    await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
+    return NextResponse.json({ received: true, awaitingViewingTime: true, propertyId: property?.id ?? recentPropertyId ?? null });
   }
   if (asksForViewingStatus(message)) {
     const { data: viewing, error: viewingError } = await supabase.from("viewings")
