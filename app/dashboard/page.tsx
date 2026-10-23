@@ -8,13 +8,17 @@ import { getAgencyWorkspace } from "@/lib/agency-workspace";
 
 export default async function DashboardPage() {
   const { supabase, user, membership, agency } = await getAgencyWorkspace();
-  const [properties, leads, members, viewings, recentLeads] = await Promise.all([
+  const [properties, leads, members, viewings, recentLeads, transactions, wonLeads] = await Promise.all([
     supabase.from("properties").select("id", { count: "exact", head: true }).eq("agency_id", agency.id),
     supabase.from("leads").select("id", { count: "exact", head: true }).eq("agency_id", agency.id),
     supabase.from("agency_members").select("id", { count: "exact", head: true }).eq("agency_id", agency.id).eq("is_active", true),
     supabase.from("viewings").select("id", { count: "exact", head: true }).eq("agency_id", agency.id).gte("starts_at", new Date().toISOString()),
     supabase.from("leads").select("id, name, phone, source, status, created_at").eq("agency_id", agency.id).order("created_at", { ascending: false }).limit(5),
+    supabase.from("property_transactions").select("total_price,deposit,remaining_balance,status").eq("agency_id", agency.id),
+    supabase.from("leads").select("id", { count: "exact", head: true }).eq("agency_id", agency.id).eq("status", "won"),
   ]);
+  const finance = (transactions.data ?? []).reduce((sum, item) => ({ completedDeals: sum.completedDeals + (item.status === "completed" ? 1 : 0), revenue: sum.revenue + (item.status === "completed" ? Number(item.total_price) : 0), deposits: sum.deposits + Number(item.deposit), remaining: sum.remaining + Number(item.remaining_balance) }), { completedDeals: 0, revenue: 0, deposits: 0, remaining: 0 });
+  const conversionRate = leads.count ? Math.round(((wonLeads.count ?? 0) / leads.count) * 100) : 0;
   const stats = [
     { label: "Properties", value: properties.count ?? 0, detail: "Dhammaan listings", href: "/properties", accent: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
     { label: "Leads", value: leads.count ?? 0, detail: "Fursadaha iibka", href: "/leads", accent: "bg-sky-50 text-sky-700", dot: "bg-sky-500" },
@@ -29,6 +33,7 @@ export default async function DashboardPage() {
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat) => <Link className="diini-lift group relative overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)] hover:border-slate-300 hover:shadow-[0_16px_40px_rgba(15,23,42,.08)]" href={stat.href} key={stat.label}><div className="flex items-start justify-between"><div className={`inline-flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[11px] font-bold ${stat.accent}`}><span className={`h-1.5 w-1.5 rounded-full ${stat.dot}`}/>{stat.label}</div><span className="text-lg text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-700">→</span></div><p className="mt-6 text-4xl font-extrabold tracking-[-.05em] text-slate-950">{stat.value}</p><p className="mt-1.5 text-[13px] text-slate-500">{stat.detail}</p></Link>)}
         </section>
+        <section className="rounded-[1.6rem] border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)] sm:p-7"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold tracking-[.16em] text-emerald-700 uppercase">Sales performance</p><h2 className="mt-2 text-xl font-black">Transactions & revenue</h2></div><Link className="text-sm font-bold text-emerald-700" href="/transactions">Dhammaan transactions →</Link></div><div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{[{ label: "Completed deals", value: finance.completedDeals }, { label: "Revenue", value: `USD ${finance.revenue.toLocaleString()}` }, { label: "Paid / deposits", value: `USD ${finance.deposits.toLocaleString()}` }, { label: "Remaining", value: `USD ${finance.remaining.toLocaleString()}` }, { label: "Conversion rate", value: `${conversionRate}%` }].map(item => <div className="rounded-2xl bg-slate-50 p-4" key={item.label}><p className="text-xs font-bold text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-black text-slate-950">{item.value}</p></div>)}</div></section>
         <section className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
           <div className="rounded-[1.6rem] border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)] sm:p-7">
             <div className="flex items-center justify-between"><div><h2 className="text-lg font-bold text-slate-950">Leads-kii ugu dambeeyey</h2><p className="mt-1 text-sm text-slate-500">Xiriirrada cusub ee agency-ga.</p></div><Link className="text-sm font-bold text-emerald-700" href="/leads">Dhammaan eeg →</Link></div>
