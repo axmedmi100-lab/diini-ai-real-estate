@@ -58,7 +58,9 @@ function asksToSeeProperty(message: string) {
 
 function asksForViewing(message: string) {
   const normalized = message.normalize("NFKC").replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
-  return /\b(viewing|appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|so{1,2}\s+arki|arkaa|arko|daawado)\b/i.test(normalized);
+  const normalizedLower = normalized.toLowerCase();
+  if (normalizedLower === "viewing" || Buffer.from(normalized, "utf8").toString("hex") === "56696577696e67") return true;
+  return /\b(appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|so{1,2}\s+arki|arkaa|arko|daawado)\b/i.test(normalized);
 }
 
 function asksForViewingStatus(message: string) {
@@ -181,7 +183,7 @@ export async function POST(request: Request) {
   // "Viewing". Handle that deterministic reply before AI classification and
   // before the human_active pause so it can never be mistaken for a handoff.
   const explicitViewingRequest = asksForViewing(message);
-  logServerEvent("info", "evolution.route_decision", { requestId: id, agencyId, explicitViewingRequest, hasViewingTime: Boolean(parseSomaliViewingTime(message)), conversationStatus: conversation.status });
+  logServerEvent("info", "evolution.route_decision", { requestId: id, agencyId, messageHex: Buffer.from(message, "utf8").toString("hex"), explicitViewingRequest, hasViewingTime: Boolean(parseSomaliViewingTime(message)), conversationStatus: conversation.status });
   if (explicitViewingRequest && !parseSomaliViewingTime(message)) {
     const { data: recentPropertyMessages } = await supabase.from("messages")
       .select("metadata")
