@@ -46,5 +46,8 @@ test("customer profile can update payments and complete a deal safely", async ()
   assert.match(actions, /status === "completed" && deposit !== totalPrice/);
   assert.match(actions, /from\("property_transactions"\)\.update/);
   assert.match(actions, /\.eq\("customer_id", customerId\)\.eq\("agency_id", agency\.id\)/);
+  assert.match(actions, /select\("id,status,deposit,remaining_balance"\)\.maybeSingle\(\)/);
+  assert.match(actions, /revalidatePath\("\/transactions"\)/);
+  assert.match(actions, /revalidatePath\("\/dashboard"\)/);
 });
 
