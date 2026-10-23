@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
 import { hasAgencyPermission } from "@/lib/permissions";
@@ -44,8 +45,11 @@ export async function updatePropertyTransaction(formData: FormData) {
   const totalPrice = Number(transaction.total_price);
   if (deposit > totalPrice) redirect(`/customers/${customerId}?error=Lacagta la bixiyey kama badnaan karto total-ka.`);
   if (status === "completed" && deposit !== totalPrice) redirect(`/customers/${customerId}?error=Si deal-ka loo dhammeeyo, lacagta la bixiyey waa inay la mid noqotaa total-ka.`);
-  const { error } = await supabase.from("property_transactions").update({ deposit, status, notes: value(formData, "transaction_notes") || null }).eq("id", transactionId).eq("customer_id", customerId).eq("agency_id", agency.id);
-  if (error) redirect(`/customers/${customerId}?error=Transaction-ka lama cusboonaysiin karin.`);
+  const { data: updated, error } = await supabase.from("property_transactions").update({ deposit, status, notes: value(formData, "transaction_notes") || null }).eq("id", transactionId).eq("customer_id", customerId).eq("agency_id", agency.id).select("id,status,deposit,remaining_balance").maybeSingle();
+  if (error || !updated) redirect(`/customers/${customerId}?error=Transaction-ka lama cusboonaysiin karin.`);
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/transactions");
+  revalidatePath("/dashboard");
   redirect(`/customers/${customerId}?message=${status === "completed" ? "Deal-ka waa la dhammeeyey." : "Transaction-ka waa la cusboonaysiiyey."}`);
 }
 
