@@ -56,6 +56,7 @@ test("Evolution viewing requests create a real booking instead of a generic repl
   assert.match(webhook, /monthNames/);
   assert.match(webhook, /namedDate/);
   assert.match(webhook, /Waan kuu diyaarinayaa viewing-ka/);
+  assert.match(webhook, /normalizedLower === "veiwing"/);
   assert.match(webhook, /awaitingViewingTime: true/);
   assert.ok(webhook.indexOf('if (asksForViewing(message) && !parseSomaliViewingTime(message))') < webhook.indexOf("extractChatRequirements(message"));
 });
