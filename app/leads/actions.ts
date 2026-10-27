@@ -49,8 +49,10 @@ export async function createLead(formData: FormData) {
   const payload = leadPayload(formData);
   const errorMessage = validateLead(payload);
   if (errorMessage) redirect(`/leads/new?error=${encodeURIComponent(errorMessage)}`);
+  const { data: entitlement } = await supabase.rpc("get_agency_plan_entitlement", { target_agency_id: agency.id, resource_name: "leads" });
+  if (entitlement?.[0] && !entitlement[0].allowed) redirect("/usage?limit=leads");
   const { data: lead, error } = await supabase.from("leads").insert({ agency_id: agency.id, ...payload }).select("id").single();
-  if (error) redirect("/leads/new?error=Lead-ka lama kaydin. Hubi xogta.");
+  if (error) redirect(error.message.includes("plan_limit_reached") ? "/usage?limit=leads" : "/leads/new?error=Lead-ka lama kaydin. Hubi xogta.");
   redirect(`/leads/${lead.id}?message=Lead-ka waa la abuuray.`);
 }
 
