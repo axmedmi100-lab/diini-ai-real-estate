@@ -71,6 +71,7 @@ test("active tenancies support lease terms, expiry reminders, termination and PD
   assert.match(migration, /monthly_rent/);
   assert.match(migration, /lease_reminder_days in \(7,14,30\)/);
   assert.match(migration, /array\[30,14,7\]/);
+  assert.match(migration, /where occupancy_id is not null\s+do update/);
   assert.match(page, /Lease management/);
   assert.match(page, /Lease agreement PDF/);
   assert.match(actions, /status: "ended"/);
