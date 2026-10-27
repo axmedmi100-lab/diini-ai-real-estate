@@ -36,6 +36,8 @@ export async function updatePropertyTransaction(formData: FormData) {
   const { supabase, membership, agency } = await getAgencyWorkspace();
   const customerId = value(formData, "customer_id");
   const transactionId = value(formData, "transaction_id");
+  const returnTo = value(formData, "return_to");
+  const destination = returnTo === `/transactions/${transactionId}` ? returnTo : `/customers/${customerId}`;
   if (!new Set(["owner", "admin", "manager", "agent"]).has(membership.role)) redirect(`/customers/${customerId}?error=Ma lihid oggolaanshaha transaction-ka.`);
   const deposit = Number(value(formData, "deposit"));
   const status = value(formData, "status");
@@ -48,8 +50,9 @@ export async function updatePropertyTransaction(formData: FormData) {
   const { data: updated, error } = await supabase.from("property_transactions").update({ deposit, status, notes: value(formData, "transaction_notes") || null }).eq("id", transactionId).eq("customer_id", customerId).eq("agency_id", agency.id).select("id,status,deposit,remaining_balance").maybeSingle();
   if (error || !updated) redirect(`/customers/${customerId}?error=Transaction-ka lama cusboonaysiin karin.`);
   revalidatePath(`/customers/${customerId}`);
+  revalidatePath(`/transactions/${transactionId}`);
   revalidatePath("/transactions");
   revalidatePath("/dashboard");
-  redirect(`/customers/${customerId}?message=${status === "completed" ? "Deal-ka waa la dhammeeyey." : "Transaction-ka waa la cusboonaysiiyey."}`);
+  redirect(`${destination}?message=${status === "completed" ? "Deal-ka waa la dhammeeyey." : "Transaction-ka waa la cusboonaysiiyey."}`);
 }
 
