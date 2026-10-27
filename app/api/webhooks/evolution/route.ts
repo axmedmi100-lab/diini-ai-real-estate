@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
-import { extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
+import { asksForHumanAgent, extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
 import { contentLengthExceeds, logServerEvent, MAX_WEBHOOK_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { estimateAiCostUsd } from "@/lib/usage/ai-cost";
@@ -124,6 +124,28 @@ function propertyCaption(property: MatchedProperty, language: "so" | "en") {
 function propertyImages(property: MatchedProperty) {
   if (!Array.isArray(property.image_urls)) return [];
   return property.image_urls.filter((value): value is string => typeof value === "string" && /^https:\/\//i.test(value)).slice(0, 3);
+}
+
+function inferQualificationReply(message: string, history: Array<{ sender_type: string; message: string }>) {
+  if (message.length > 80) return {};
+  const question = history.toReversed().find((item) => item.sender_type === "ai"
+    && /(?:\?|ii\s+sheeg|tell\s+me|waa\s+maxay|which|do\s+you\s+want)/i.test(item.message)
+    && /(?:degmo|district|budget|miisaaniyad|qol|bedroom|kiro|rent|iib|buy|property type|nooca)/i.test(item.message))?.message ?? "";
+  const normalized = message.trim();
+  if (/(?:degmo|district)/i.test(question) && /^[\p{L}' -]{2,50}$/u.test(normalized)) return { district: canonicalDistrict(normalized), continuesSearch: true };
+  if (/(?:budget|miisaaniyad)/i.test(question)) {
+    const amount = Number(normalized.replace(/[^\d]/g, ""));
+    if (amount >= 50) return { budget_max: amount, continuesSearch: true };
+  }
+  if (/(?:qol|bedroom)/i.test(question)) {
+    const bedrooms = Number(normalized.match(/\d+/)?.[0]);
+    if (Number.isInteger(bedrooms) && bedrooms > 0 && bedrooms < 30) return { bedrooms, continuesSearch: true };
+  }
+  if (/(?:kiro|rent|iib|buy)/i.test(question)) {
+    if (/\b(?:kiro|rent)\b/i.test(normalized)) return { purpose: "rent" as const, continuesSearch: true };
+    if (/\b(?:iib|buy|sale)\b/i.test(normalized)) return { purpose: "sale" as const, continuesSearch: true };
+  }
+  return {};
 }
 
 export async function POST(request: Request) {
@@ -250,7 +272,9 @@ export async function POST(request: Request) {
   if (!settings?.is_enabled) return NextResponse.json({ received: true, ai_disabled: true });
   const orderedHistory = (history ?? []).reverse();
   const extraction = await extractChatRequirements(message, orderedHistory, { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
-  const requirement = extraction.data;
+  const inferred = inferQualificationReply(message, orderedHistory.slice(0, -1));
+  const requirement = { ...extraction.data, ...inferred };
+  const explicitHumanRequest = asksForHumanAgent(message);
   const showRequest = asksToSeeProperty(message);
   const awaitingViewingTime = orderedHistory.slice(-12).some((item) => item.sender_type === "ai" && /(?:taariikhda iyo saacadda viewing-ka|viewing date and time)/i.test(item.message));
   const conflictPrompt = orderedHistory.toReversed().find((item) => item.sender_type === "ai" && /(?:Waqtigaas viewing kale|Waxaad dooran kartaa|please choose another time)/i.test(item.message));
@@ -266,7 +290,7 @@ export async function POST(request: Request) {
     property_type: requirement.property_type ?? lead.property_type ?? null,
     furnished: requirement.furnished ?? lead.furnished ?? null,
   };
-  const shouldSearch = (requirement.intent === "property_search" || showRequest || viewingRequest) && Boolean(searchRequirement.purpose || searchRequirement.district || searchRequirement.budget_max || searchRequirement.bedrooms || searchRequirement.property_type || searchRequirement.furnished !== null);
+  const shouldSearch = (requirement.intent === "property_search" || inferred.continuesSearch || showRequest || viewingRequest) && Boolean(searchRequirement.purpose || searchRequirement.district || searchRequirement.budget_max || searchRequirement.bedrooms || searchRequirement.property_type || searchRequirement.furnished !== null);
   let properties: MatchedProperty[] = [];
   if (shouldSearch) {
     const search = (propertyType: string | null) => supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: searchRequirement.purpose, wanted_district: searchRequirement.district, min_budget: searchRequirement.budget_min, max_budget: searchRequirement.budget_max, min_bedrooms: searchRequirement.bedrooms, wanted_property_type: propertyType, wanted_furnished: searchRequirement.furnished });
@@ -280,7 +304,7 @@ export async function POST(request: Request) {
     }
     properties = (data ?? []) as MatchedProperty[];
   }
-  const handoff = !showRequest && !viewingRequest && requirement.human_handoff && settings.human_handoff_enabled;
+  const handoff = !showRequest && !viewingRequest && explicitHumanRequest && settings.human_handoff_enabled;
   let selectedProperty: MatchedProperty | undefined = properties[0];
   if (viewingRequest && !selectedProperty) {
     const { data: recentPropertyMessages } = await supabase.from("messages")
@@ -340,14 +364,19 @@ export async function POST(request: Request) {
     await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
     return NextResponse.json({ received: true, viewingId });
   }
-  const reply = handoff ? (requirement.language === "so" ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona." : "Your request for a human agent has been sent. Someone from the agency will contact you.") : selectedProperty ? propertyCaption(selectedProperty, requirement.language) : shouldSearch ? formatPropertyReply(requirement.language, properties.length) : requirement.reply;
+  const reply = handoff ? (requirement.language === "so" ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona." : "Your request for a human agent has been sent. Someone from the agency will contact you.") : shouldSearch ? formatPropertyReply(requirement.language, properties.length) : requirement.reply;
   try {
     const outboundId = await sendWhatsAppText(agencyId, phone, reply);
-    await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: reply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId, property_id: selectedProperty?.id ?? null } });
+    await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: reply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId } });
     await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
-    if (selectedProperty) {
-      for (const [index, imageUrl] of propertyImages(selectedProperty).entries()) {
-        await sendWhatsAppImage(agencyId, phone, imageUrl, index === 0 ? propertyCaption(selectedProperty, requirement.language) : "");
+    if (!handoff && shouldSearch) {
+      for (const property of properties.slice(0, 3)) {
+        const caption = propertyCaption(property, requirement.language);
+        const imageUrl = propertyImages(property)[0];
+        const propertyOutboundId = imageUrl
+          ? await sendWhatsAppImage(agencyId, phone, imageUrl, caption)
+          : await sendWhatsAppText(agencyId, phone, caption);
+        await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: caption, metadata: { provider: "evolution_whatsapp", provider_message_id: propertyOutboundId, property_id: property.id, outreach_kind: "property_search_result" } });
         await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
       }
     }
