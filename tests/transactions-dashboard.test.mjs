@@ -14,7 +14,18 @@ test("transactions page supports finance totals, search and status filters", asy
   assert.match(page, /Raadi customer, phone ama property/);
   assert.match(page, /All statuses/);
   assert.match(page, /item\.status === "completed"/);
-  assert.match(page, /href=\{`\/customers\/\$\{item\.customer_id\}`\}/);
+  assert.match(page, /href=\{`\/transactions\/\$\{item\.id\}`\}/);
+});
+
+test("each transaction opens a dedicated editable detail page", async () => {
+  const detail = await read("app/transactions/[id]/page.tsx");
+  const actions = await read("app/customers/actions.ts");
+  assert.match(detail, /Transaction detail/);
+  assert.match(detail, /updatePropertyTransaction/);
+  assert.match(detail, /Customer profile/);
+  assert.match(detail, /Property details/);
+  assert.match(detail, /name="return_to"/);
+  assert.match(actions, /revalidatePath\(`\/transactions\/\$\{transactionId\}`\)/);
 });
 
 test("agency dashboard reports revenue and lead conversion", async () => {
