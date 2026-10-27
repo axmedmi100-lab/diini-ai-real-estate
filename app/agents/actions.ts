@@ -16,6 +16,8 @@ export async function inviteAgencyMember(formData: FormData) {
   const email = value(formData, "email").toLowerCase();
   const role = value(formData, "role") as AgencyRole;
   if (!email || !["admin", "manager", "agent", "receptionist"].includes(role)) redirect("/agents?error=Email ama role sax ah geli.");
+  const { data: entitlement } = await supabase.rpc("get_agency_plan_entitlement", { target_agency_id: membership.agency_id, resource_name: "users" });
+  if (entitlement?.[0] && !entitlement[0].allowed) redirect("/usage?limit=users");
   const token = randomBytes(32).toString("base64url");
   const { error } = await supabase.rpc("create_agency_invitation", { target_email: email, target_role: role, raw_token: token });
   if (error) redirect(`/agents?error=${encodeURIComponent(error.message.includes("already") ? "Qofkan horay ayuu member u yahay." : "Martiqaadka lama samayn karin.")}`);
