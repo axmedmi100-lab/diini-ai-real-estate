@@ -42,6 +42,20 @@ test("transaction detail records an auditable payment history", async () => {
   assert.match(migration, /OPENING-BALANCE/);
 });
 
+test("transaction invoice and payment receipt PDFs are tenant scoped", async () => {
+  const detail = await read("app/transactions/[id]/page.tsx");
+  const route = await read("app/api/transactions/[id]/pdf/route.ts");
+  const pdf = await read("lib/pdf/transaction-document.ts");
+  assert.match(detail, /Download invoice PDF/);
+  assert.match(detail, /Receipt PDF/);
+  assert.match(route, /eq\("agency_id", agency\.id\)/);
+  assert.match(route, /Payment not found/);
+  assert.match(route, /Content-Type": "application\/pdf"/);
+  assert.match(pdf, /TRANSACTION INVOICE/);
+  assert.match(pdf, /PAYMENT RECEIPT/);
+  assert.match(pdf, /PAYMENT HISTORY/);
+});
+
 test("agency dashboard reports revenue and lead conversion", async () => {
   const dashboard = await read("app/dashboard/page.tsx");
   const shell = await read("components/layout/app-shell.tsx");
