@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
 import { hasAgencyPermission, type AgencyRole } from "@/lib/permissions";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 function value(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
 
@@ -18,7 +19,16 @@ export async function inviteAgencyMember(formData: FormData) {
   const token = randomBytes(32).toString("base64url");
   const { error } = await supabase.rpc("create_agency_invitation", { target_email: email, target_role: role, raw_token: token });
   if (error) redirect(`/agents?error=${encodeURIComponent(error.message.includes("already") ? "Qofkan horay ayuu member u yahay." : "Martiqaadka lama samayn karin.")}`);
-  redirect(`/agents?message=${encodeURIComponent("Martiqaadka waa la sameeyey. Link-ga hoose la wadaag qofka.")}&invite=${encodeURIComponent(token)}`);
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
+  const admin = createAdminClient();
+  const { error: emailError } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${siteUrl}/auth/confirm?next=/auth/set-password`,
+    data: { invitation_token: token, preferred_language: "so" },
+  });
+  const message = emailError
+    ? "Invite-ka waa la sameeyey, laakiin email-ka lama dirin. Link-ga hoose gacanta kula wadaag qofka."
+    : "Martiqaadka email ahaan waa la diray. Link-ga hoose sidoo kale waad copy-gareyn kartaa.";
+  redirect(`/agents?message=${encodeURIComponent(message)}&invite=${encodeURIComponent(token)}`);
 }
 
 export async function setAvailability(formData: FormData) {
@@ -42,3 +52,4 @@ export async function setMemberAvailability(formData: FormData) {
   revalidatePath("/agents");
   redirect("/agents?message=Xaaladda agent-ka waa la cusboonaysiiyey.");
 }
+
