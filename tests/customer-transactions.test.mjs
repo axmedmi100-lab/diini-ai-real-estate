@@ -69,6 +69,7 @@ test("active tenancies support lease terms, expiry reminders, termination and PD
   const actions = await read("app/properties/lease-actions.ts");
   const route = await read("app/api/leases/[id]/pdf/route.ts");
   assert.match(migration, /monthly_rent/);
+  assert.match(migration, /property_occupancy_dates_check/);
   assert.match(migration, /lease_reminder_days in \(7,14,30\)/);
   assert.match(migration, /array\[30,14,7\]/);
   assert.match(migration, /where occupancy_id is not null\s+do update/);
