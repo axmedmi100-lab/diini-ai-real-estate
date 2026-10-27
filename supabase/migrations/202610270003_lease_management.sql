@@ -1,5 +1,22 @@
 begin;
 
+do $$
+declare constraint_row record;
+begin
+  for constraint_row in
+    select conname from pg_constraint
+    where conrelid = 'public.property_occupancy_records'::regclass and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%end_date%is null%'
+  loop
+    execute format('alter table public.property_occupancy_records drop constraint %I', constraint_row.conname);
+  end loop;
+end $$;
+
+alter table public.property_occupancy_records
+  add constraint property_occupancy_dates_check check (
+    (end_date is null or end_date >= start_date) and (status <> 'ended' or end_date is not null)
+  );
+
 alter table public.property_occupancy_records
   add column if not exists monthly_rent numeric(14,2) check (monthly_rent is null or monthly_rent >= 0),
   add column if not exists security_deposit numeric(14,2) not null default 0 check (security_deposit >= 0),
