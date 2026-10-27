@@ -24,10 +24,16 @@ test("Evolution outbound messages use a server-only API key", async () => {
 
 test("Evolution property matches send details and image media without accidental handoff", async () => {
   const webhook = await read("app/api/webhooks/evolution/route.ts");
+  const chat = await read("lib/ai/property-chat.ts");
   assert.match(webhook, /asksToSeeProperty/);
-  assert.match(webhook, /!showRequest && !viewingRequest && requirement\.human_handoff/);
+  assert.match(webhook, /explicitHumanRequest = asksForHumanAgent\(message\)/);
+  assert.match(webhook, /!showRequest && !viewingRequest && explicitHumanRequest/);
+  assert.match(chat, /export function asksForHumanAgent/);
   assert.match(webhook, /sendWhatsAppImage/);
-  assert.match(webhook, /propertyImages\(selectedProperty\)/);
+  assert.match(webhook, /properties\.slice\(0, 3\)/);
+  assert.match(webhook, /property_search_result/);
+  assert.match(webhook, /inferQualificationReply/);
+  assert.match(webhook, /inferred\.continuesSearch/);
   assert.match(webhook, /evolution\.property_search_failed/);
   assert.match(webhook, /canonicalDistrict/);
   assert.match(webhook, /await search\(null\)/);
@@ -46,7 +52,7 @@ test("Evolution viewing requests create a real booking instead of a generic repl
   assert.match(webhook, /parsedViewingTime && \(awaitingViewingTime \|\| conflictPrompt\)/);
   assert.match(webhook, /conflictPrompt/);
   assert.match(webhook, /parseSomaliViewingTime\(`\$\{conflictPrompt\.message\} \$\{message\}`\)/);
-  assert.match(webhook, /!viewingRequest && requirement\.human_handoff/);
+  assert.match(webhook, /!viewingRequest && explicitHumanRequest/);
   assert.match(webhook, /ball\?an/);
   assert.match(webhook, /viewing time conflict/);
   assert.match(webhook, /viewingConflict/);
