@@ -84,9 +84,12 @@ export async function createProperty(formData: FormData) {
   const errorMessage = validate(payload) || validateImages(files);
   if (errorMessage) redirect(`/properties/new?error=${encodeURIComponent(errorMessage)}`);
 
+  const { data: entitlement } = await supabase.rpc("get_agency_plan_entitlement", { target_agency_id: agency.id, resource_name: "properties" });
+  if (entitlement?.[0] && !entitlement[0].allowed) redirect("/usage?limit=properties");
+
   const propertyId = randomUUID();
   const { error } = await supabase.from("properties").insert({ id: propertyId, agency_id: agency.id, ...payload });
-  if (error) redirect("/properties/new?error=Property-ga lama kaydin. Hubi xogta.");
+  if (error) redirect(error.message.includes("plan_limit_reached") ? "/usage?limit=properties" : "/properties/new?error=Property-ga lama kaydin. Hubi xogta.");
 
   let uploadedPaths: string[] = [];
   try {
