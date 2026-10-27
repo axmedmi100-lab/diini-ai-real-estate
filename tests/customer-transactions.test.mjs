@@ -49,3 +49,17 @@ test("customer profile can update deal status safely", async () => {
   assert.match(actions, /revalidatePath\("\/dashboard"\)/);
 });
 
+test("completed buy and rent deals create tenant-scoped occupancy records", async () => {
+  const migration = await read("supabase/migrations/202610270002_property_ownership_tenancy.sql");
+  const propertyPage = await read("app/properties/[id]/page.tsx");
+  const transactionPage = await read("app/transactions/[id]/page.tsx");
+  assert.match(migration, /create table public\.property_occupancy_records/);
+  assert.match(migration, /record_type in \('ownership','tenancy'\)/);
+  assert.match(migration, /new\.status = 'completed'/);
+  assert.match(migration, /on conflict \(transaction_id\) do update/);
+  assert.match(migration, /where status = 'completed' and transaction_type in \('buy','rent'\)/);
+  assert.match(migration, /public\.is_agency_member\(agency_id\)/);
+  assert.match(propertyPage, /Ownership & tenancy/);
+  assert.match(transactionPage, /View property record/);
+});
+
