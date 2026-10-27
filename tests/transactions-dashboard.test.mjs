@@ -28,6 +28,20 @@ test("each transaction opens a dedicated editable detail page", async () => {
   assert.match(actions, /revalidatePath\(`\/transactions\/\$\{transactionId\}`\)/);
 });
 
+test("transaction detail records an auditable payment history", async () => {
+  const detail = await read("app/transactions/[id]/page.tsx");
+  const actions = await read("app/customers/actions.ts");
+  const migration = await read("supabase/migrations/202610270001_transaction_payment_history.sql");
+  assert.match(detail, /addTransactionPayment/);
+  assert.match(detail, /Payment history/);
+  assert.match(detail, /Payment method/);
+  assert.match(actions, /from\("transaction_payments"\)\.insert/);
+  assert.match(actions, /amount > remaining/);
+  assert.match(migration, /create table public\.transaction_payments/);
+  assert.match(migration, /sync_transaction_payment_total/);
+  assert.match(migration, /OPENING-BALANCE/);
+});
+
 test("agency dashboard reports revenue and lead conversion", async () => {
   const dashboard = await read("app/dashboard/page.tsx");
   const shell = await read("components/layout/app-shell.tsx");
