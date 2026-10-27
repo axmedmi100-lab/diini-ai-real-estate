@@ -34,7 +34,8 @@ begin
       insert into public.follow_ups (agency_id,lead_id,channel,scheduled_for,message_template,occupancy_id,lease_reminder_days)
       values (new.agency_id,target_lead_id,'manual',reminder_time,
         'Lease-ku wuxuu dhammaanayaa '||new.end_date||'. Waxaa harsan '||reminder_days||' maalmood. La xiriir tenant-ka renewal ama termination.',new.id,reminder_days)
-      on conflict (occupancy_id,lease_reminder_days) do update set scheduled_for=excluded.scheduled_for,message_template=excluded.message_template,status='pending',attempt_count=0,sent_at=null,updated_at=now();
+      on conflict (occupancy_id,lease_reminder_days) where occupancy_id is not null
+      do update set scheduled_for=excluded.scheduled_for,message_template=excluded.message_template,status='pending',attempt_count=0,sent_at=null,updated_at=now();
     end if;
   end loop;
   return new;
