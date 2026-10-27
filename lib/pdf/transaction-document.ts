@@ -1,0 +1,104 @@
+import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+
+export type TransactionPdfData = {
+  agencyName: string;
+  customerName: string;
+  customerPhone?: string | null;
+  propertyTitle: string;
+  currency: string;
+  transactionId: string;
+  transactionDate: string;
+  transactionType: string;
+  status: string;
+  total: number;
+  paid: number;
+  remaining: number;
+  payments: Array<{ id: string; amount: number; paymentDate: string; paymentMethod: string; reference?: string | null; notes?: string | null }>;
+  receiptPaymentId?: string | null;
+};
+
+const ink = rgb(0.04, 0.09, 0.16);
+const muted = rgb(0.38, 0.43, 0.5);
+const green = rgb(0.02, 0.64, 0.45);
+const pale = rgb(0.95, 0.97, 0.98);
+const money = (currency: string, amount: number) => `${currency} ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const safe = (text: string) => text.replace(/[–—]/g, "-").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[^\x20-\x7E\xA0-\xFF]/g, "?");
+
+function text(page: PDFPage, font: PDFFont, value: string, x: number, y: number, size = 10, color = ink) {
+  page.drawText(safe(value), { x, y, size, font, color });
+}
+
+function line(page: PDFPage, y: number) {
+  page.drawLine({ start: { x: 48, y }, end: { x: 547, y }, thickness: 0.7, color: rgb(0.82, 0.85, 0.88) });
+}
+
+export async function createTransactionPdf(data: TransactionPdfData) {
+  const pdf = await PDFDocument.create();
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const page = pdf.addPage([595, 842]);
+  const receipt = data.receiptPaymentId ? data.payments.find((item) => item.id === data.receiptPaymentId) : null;
+  const title = receipt ? "PAYMENT RECEIPT" : "TRANSACTION INVOICE";
+
+  page.drawRectangle({ x: 0, y: 750, width: 595, height: 92, color: ink });
+  text(page, bold, safe(data.agencyName).toUpperCase(), 48, 805, 17, rgb(1, 1, 1));
+  text(page, regular, "REAL ESTATE", 48, 785, 9, green);
+  text(page, bold, title, 365, 799, 15, rgb(1, 1, 1));
+  text(page, regular, `Document: ${receipt ? receipt.id.slice(0, 8) : data.transactionId.slice(0, 8)}`, 365, 780, 9, rgb(0.75, 0.8, 0.86));
+
+  text(page, bold, "BILLED TO", 48, 710, 9, green);
+  text(page, bold, data.customerName, 48, 690, 13);
+  if (data.customerPhone) text(page, regular, data.customerPhone, 48, 674, 10, muted);
+  text(page, bold, "PROPERTY", 330, 710, 9, green);
+  text(page, bold, data.propertyTitle, 330, 690, 13);
+  text(page, regular, `${data.transactionType.toUpperCase()} - ${data.transactionDate}`, 330, 674, 10, muted);
+  line(page, 650);
+
+  if (receipt) {
+    text(page, bold, "PAYMENT DETAILS", 48, 620, 12);
+    page.drawRectangle({ x: 48, y: 510, width: 499, height: 88, color: pale, borderColor: rgb(0.82, 0.85, 0.88), borderWidth: 0.7 });
+    text(page, regular, "Payment date", 64, 572, 9, muted);
+    text(page, bold, receipt.paymentDate, 64, 550, 12);
+    text(page, regular, "Method", 220, 572, 9, muted);
+    text(page, bold, receipt.paymentMethod.replaceAll("_", " ").toUpperCase(), 220, 550, 12);
+    text(page, regular, "Amount received", 382, 572, 9, muted);
+    text(page, bold, money(data.currency, receipt.amount), 382, 550, 12, green);
+    text(page, regular, `Reference: ${receipt.reference || "-"}`, 64, 524, 9, muted);
+    text(page, bold, "ACCOUNT SUMMARY", 48, 470, 12);
+  } else {
+    text(page, bold, "ACCOUNT SUMMARY", 48, 620, 12);
+  }
+
+  const summaryY = receipt ? 360 : 510;
+  page.drawRectangle({ x: 48, y: summaryY, width: 499, height: 88, color: pale });
+  [["Total", data.total], ["Paid", data.paid], ["Remaining", data.remaining]].forEach(([label, amount], index) => {
+    const x = 64 + index * 165;
+    text(page, regular, String(label), x, summaryY + 60, 9, muted);
+    text(page, bold, money(data.currency, Number(amount)), x, summaryY + 34, 13, index === 1 ? green : ink);
+  });
+
+  if (!receipt) {
+    text(page, bold, "PAYMENT HISTORY", 48, 470, 12);
+    text(page, bold, "DATE", 48, 444, 8, muted);
+    text(page, bold, "METHOD", 160, 444, 8, muted);
+    text(page, bold, "REFERENCE", 300, 444, 8, muted);
+    text(page, bold, "AMOUNT", 455, 444, 8, muted);
+    let y = 420;
+    for (const payment of data.payments.slice(0, 10)) {
+      text(page, regular, payment.paymentDate, 48, y, 9);
+      text(page, regular, payment.paymentMethod.replaceAll("_", " "), 160, y, 9);
+      text(page, regular, (payment.reference || "-").slice(0, 22), 300, y, 9);
+      text(page, bold, money(data.currency, payment.amount), 455, y, 9);
+      line(page, y - 12);
+      y -= 30;
+    }
+    if (!data.payments.length) text(page, regular, "No payments recorded.", 48, 414, 10, muted);
+    if (data.payments.length > 10) text(page, regular, `Showing 10 of ${data.payments.length} payments.`, 48, 105, 9, muted);
+  }
+
+  line(page, 72);
+  text(page, regular, `Status: ${data.status.toUpperCase()}`, 48, 50, 9, muted);
+  text(page, regular, "Generated by DIINI AI Real Estate", 365, 50, 9, muted);
+  return pdf.save();
+}
+
