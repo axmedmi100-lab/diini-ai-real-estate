@@ -63,3 +63,19 @@ test("completed buy and rent deals create tenant-scoped occupancy records", asyn
   assert.match(transactionPage, /View property record/);
 });
 
+test("active tenancies support lease terms, expiry reminders, termination and PDF", async () => {
+  const migration = await read("supabase/migrations/202610270003_lease_management.sql");
+  const page = await read("app/properties/[id]/page.tsx");
+  const actions = await read("app/properties/lease-actions.ts");
+  const route = await read("app/api/leases/[id]/pdf/route.ts");
+  assert.match(migration, /monthly_rent/);
+  assert.match(migration, /lease_reminder_days in \(7,14,30\)/);
+  assert.match(migration, /array\[30,14,7\]/);
+  assert.match(page, /Lease management/);
+  assert.match(page, /Lease agreement PDF/);
+  assert.match(actions, /status: "ended"/);
+  assert.match(actions, /status: "available"/);
+  assert.match(route, /createLeaseAgreementPdf/);
+  assert.match(route, /eq\("agency_id", agency\.id\)/);
+});
+
