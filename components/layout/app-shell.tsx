@@ -16,6 +16,7 @@ const navigation = [
   { label: "Agents", href: "/agents", icon: "agent" },
   { label: "Integrations", href: "/integrations", icon: "plug" },
   { label: "Plan & Usage", href: "/usage", icon: "chart" },
+  { label: "Billing", href: "/billing", icon: "money" },
   { label: "Notifications", href: "/notifications", icon: "bell" },
   { label: "Settings", href: "/settings", icon: "settings" },
 ];
