@@ -9,6 +9,7 @@ const links = [
   { href: "/admin/agencies", label: "Agencies" },
   { href: "/admin/plans", label: "Plans" },
   { href: "/admin/billing", label: "Manual billing" },
+  { href: "/admin/revenue", label: "Revenue" },
   { href: "/admin/integrations", label: "Integrations" },
   { href: "/admin/usage", label: "Usage" },
   { href: "/admin/audit-logs", label: "Audit logs" },
