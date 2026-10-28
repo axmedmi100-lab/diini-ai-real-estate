@@ -5,6 +5,26 @@ import { redirect } from "next/navigation";
 import { stripePost } from "@/lib/billing/stripe";
 import { getAgencyWorkspace } from "@/lib/agency-workspace";
 
+export async function submitManualPayment(formData: FormData) {
+  const { supabase, membership, agency } = await getAgencyWorkspace();
+  if (membership.role !== "owner") redirect("/billing?error=Kaliya owner-ka ayaa codsi lacag-bixin diri kara.");
+  const planCode = String(formData.get("plan_code") ?? "");
+  const amount = Number(formData.get("amount") ?? 0);
+  const paymentMethod = String(formData.get("payment_method") ?? "");
+  const paymentReference = String(formData.get("payment_reference") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+  const { error } = await supabase.rpc("create_manual_payment_request", {
+    target_plan_code: planCode,
+    target_amount: amount,
+    target_currency: agency.default_currency.toLowerCase(),
+    target_payment_method: paymentMethod,
+    target_payment_reference: paymentReference,
+    target_notes: notes || null,
+  });
+  if (error) redirect(`/billing?error=${encodeURIComponent(error.message.includes("pending") ? "Codsi kale ayaa wali sugaya ansixin." : "Codsiga lacag-bixinta lama dirin. Hubi xogta.")}`);
+  redirect("/billing?manual=1");
+}
+
 export async function startPlanCheckout(formData: FormData) {
   const { supabase, user, membership, agency } = await getAgencyWorkspace();
   if (membership.role !== "owner") redirect("/billing?error=Kaliya owner-ka ayaa plan beddeli kara.");
