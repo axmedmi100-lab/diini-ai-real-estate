@@ -23,6 +23,7 @@ function retryDelay(attempt: number) { return [5, 15, 60, 240][Math.min(Math.max
 
 async function runWorker(request: Request) {
   const id = requestId(request);
+  const startedAt = new Date();
   if (!authorized(request)) {
     logServerEvent("warn", "follow_up_worker.unauthorized", { requestId: id });
     return NextResponse.json({ error: "Unauthorized", requestId: id }, { status: 401, headers: { "X-Request-Id": id } });
@@ -30,6 +31,7 @@ async function runWorker(request: Request) {
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("claim_due_follow_ups", { batch_limit: 100 });
   if (error) {
+    await supabase.rpc("record_platform_worker_run", { target_worker_name: "follow_up", target_status: "failed", target_request_id: id, target_started_at: startedAt.toISOString(), target_duration_ms: Date.now()-startedAt.getTime(), target_result: {}, target_error_message: error.message });
     logServerEvent("error", "follow_up_worker.claim_failed", { requestId: id, code: error.code });
     return NextResponse.json({ error: "Follow-up claim failed", requestId: id }, { status: 500, headers: { "X-Request-Id": id } });
   }
@@ -90,6 +92,7 @@ async function runWorker(request: Request) {
     }
   }
   logServerEvent("info", "follow_up_worker.completed", { requestId: id, ...summary });
+  await supabase.rpc("record_platform_worker_run", { target_worker_name: "follow_up", target_status: "success", target_request_id: id, target_started_at: startedAt.toISOString(), target_duration_ms: Date.now()-startedAt.getTime(), target_result: summary, target_error_message: null });
   return NextResponse.json({ ok: true, result: summary, requestId: id }, { headers: { "X-Request-Id": id } });
 }
 
