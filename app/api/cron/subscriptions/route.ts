@@ -11,13 +11,17 @@ async function run(request: Request) {
   const id = requestId(request);
   if (!authorized(request)) return NextResponse.json({ error: "Unauthorized", requestId: id }, { status: 401 });
   const supabase = createAdminClient();
-  const { data, error } = await supabase.rpc("process_subscription_expiries");
-  if (error) {
-    logServerEvent("error", "subscription_worker.failed", { requestId: id, code: error.code });
+  const [{ data: subscriptions, error }, { data: recurringExpenses, error: recurringError }] = await Promise.all([
+    supabase.rpc("process_subscription_expiries"),
+    supabase.rpc("process_recurring_expenses"),
+  ]);
+  if (error || recurringError) {
+    logServerEvent("error", "finance_worker.failed", { requestId: id, subscriptionCode: error?.code, recurringExpenseCode: recurringError?.code });
     return NextResponse.json({ error: "Subscription worker failed", requestId: id }, { status: 500 });
   }
-  logServerEvent("info", "subscription_worker.completed", { requestId: id, result: data });
-  return NextResponse.json({ ok: true, result: data, requestId: id });
+  const result = { subscriptions, recurring_expenses: recurringExpenses };
+  logServerEvent("info", "finance_worker.completed", { requestId: id, result });
+  return NextResponse.json({ ok: true, result, requestId: id });
 }
 
 export async function GET(request: Request) { return run(request); }
