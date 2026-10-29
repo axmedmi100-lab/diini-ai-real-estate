@@ -31,4 +31,5 @@ yarn-error.log*
 
 # local deployment credentials
 /.deploy/
+/backups/
 
