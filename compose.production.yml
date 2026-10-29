@@ -39,11 +39,26 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >-
+        backup_day="";
         while true; do
           echo "[$$(date -Iseconds)] Running follow-up worker";
           wget -qO- --timeout=20 --header="Authorization: Bearer $$CRON_SECRET" http://app:3000/api/cron/follow-ups || echo "[$$(date -Iseconds)] Follow-up worker request failed";
           echo "[$$(date -Iseconds)] Running subscription expiry worker";
           wget -qO- --timeout=20 --header="Authorization: Bearer $$CRON_SECRET" http://app:3000/api/cron/subscriptions || echo "[$$(date -Iseconds)] Subscription worker request failed";
+          current_day=$$(date -u +%F);
+          if [ "$$current_day" != "$$backup_day" ]; then
+            filename="diini-backup-$${current_day}.bin";
+            echo "[$$(date -Iseconds)] Generating encrypted daily backup $$filename";
+            if wget -qO "/backups/.$$filename.tmp" --timeout=180 --header="Authorization: Bearer $$CRON_SECRET" "http://app:3000/api/cron/backups?filename=$$filename"; then
+              mv "/backups/.$$filename.tmp" "/backups/$$filename";
+              wget -qO- --post-data="" --timeout=20 --header="Authorization: Bearer $$CRON_SECRET" "http://app:3000/api/cron/backups?filename=$$filename" || echo "[$$(date -Iseconds)] Backup confirmation failed";
+              find /backups -type f -name 'diini-backup-*.bin' -mtime +14 -delete;
+              backup_day="$$current_day";
+            else
+              rm -f "/backups/.$$filename.tmp";
+              echo "[$$(date -Iseconds)] Encrypted daily backup failed";
+            fi;
+          fi;
           echo;
           sleep 60;
         done
@@ -58,6 +73,8 @@ services:
     cpus: 0.10
     security_opt:
       - no-new-privileges:true
+    volumes:
+      - ./backups:/backups
 
 networks:
   app_internal:
