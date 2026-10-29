@@ -10,6 +10,7 @@ const links = [
   { href: "/admin/plans", label: "Plans" },
   { href: "/admin/billing", label: "Manual billing" },
   { href: "/admin/revenue", label: "Revenue" },
+  { href: "/admin/expenses", label: "Expenses & P/L" },
   { href: "/admin/integrations", label: "Integrations" },
   { href: "/admin/usage", label: "Usage" },
   { href: "/admin/audit-logs", label: "Audit logs" },
