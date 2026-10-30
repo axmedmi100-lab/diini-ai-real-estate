@@ -1,15 +1,18 @@
+import Image from "next/image";
+
 type BrandProps = Readonly<{
   inverted?: boolean;
+  compact?: boolean;
 }>;
 
-export function Brand({ inverted = false }: BrandProps) {
+export function Brand({ inverted = false, compact = false }: BrandProps) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[14px] bg-emerald-400 text-base font-black text-slate-950 shadow-[0_8px_24px_rgba(16,185,129,.24)]">
-        <span className="absolute -right-2 -top-3 h-7 w-7 rounded-full bg-white/35" />
-        <span className="relative">D</span>
+    <div className="diini-brand group flex items-center gap-3" aria-label="DIINI AI Real Estate">
+      <span className="diini-brand-mark relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[15px] shadow-[0_10px_28px_rgba(16,185,129,.24)]">
+        <Image alt="" className="h-full w-full object-cover" height={44} priority src="/icons/diini-192.png" width={44} />
+        <span aria-hidden className="diini-brand-shine absolute inset-y-0 -left-8 w-5 rotate-12 bg-white/35 blur-sm" />
       </span>
-      <span className="leading-tight">
+      {!compact ? <span className="leading-tight">
         <span
           className={`block text-sm font-bold tracking-wide ${
             inverted ? "text-white" : "text-slate-950"
@@ -24,7 +27,7 @@ export function Brand({ inverted = false }: BrandProps) {
         >
           Real Estate
         </span>
-      </span>
+      </span> : null}
     </div>
   );
 }
