@@ -15,6 +15,7 @@ const links = [
   { href: "/admin/usage", label: "Usage" },
   { href: "/admin/audit-logs", label: "Audit logs" },
   { href: "/admin/system", label: "System" },
+  { href: "/admin/readiness", label: "Launch readiness" },
 ];
 
 export function AdminShell({ children, currentPath, userEmail }: Readonly<{ children: ReactNode; currentPath: string; userEmail?: string }>) {
