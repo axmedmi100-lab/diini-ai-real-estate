@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const tables = [
-  "agencies","user_profiles","agency_members","properties","customers","leads","conversations","messages","viewings","follow_ups","notifications","integrations","ai_settings","audit_logs",
+  "agencies","user_profiles","agency_members","properties","customers","leads","conversations","messages","viewings","follow_ups","notifications","push_subscriptions","integrations","ai_settings","audit_logs",
   "platform_users","platform_audit_logs","agency_usage_monthly","platform_plans","agency_invitations","property_transactions","transaction_payments","property_occupancy_records",
   "agency_subscriptions","billing_invoices","manual_payment_requests","subscription_automation_events","platform_expenses","platform_integration_secrets",
 ] as const;

@@ -45,6 +45,8 @@ services:
           wget -qO- --timeout=20 --header="Authorization: Bearer $$CRON_SECRET" http://app:3000/api/cron/follow-ups || echo "[$$(date -Iseconds)] Follow-up worker request failed";
           echo "[$$(date -Iseconds)] Running subscription expiry worker";
           wget -qO- --timeout=20 --header="Authorization: Bearer $$CRON_SECRET" http://app:3000/api/cron/subscriptions || echo "[$$(date -Iseconds)] Subscription worker request failed";
+          echo "[$$(date -Iseconds)] Running push notification worker";
+          wget -qO- --timeout=30 --header="Authorization: Bearer $$CRON_SECRET" http://app:3000/api/cron/push || echo "[$$(date -Iseconds)] Push notification worker request failed";
           current_day=$$(date -u +%F);
           if [ "$$current_day" != "$$backup_day" ]; then
             filename="diini-backup-$${current_day}.bin";
