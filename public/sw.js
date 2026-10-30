@@ -33,17 +33,19 @@ self.addEventListener("push", (event) => {
     badge: "/icons/diini-192.png",
     tag: payload.tag || "diini-notification",
     renotify: true,
-    data: { url: payload.url || "/notifications" },
+    data: { url: payload.url || "/notifications", notificationId: payload.notificationId || null },
   }));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = new URL(event.notification.data?.url || "/notifications", self.location.origin).href;
-  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+  const markRead = event.notification.data?.notificationId ? fetch("/api/push/read", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({notificationId:event.notification.data.notificationId}) }).catch(()=>undefined) : Promise.resolve();
+  const open = self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
     const existing = clients.find((client) => client.url.startsWith(self.location.origin));
     if (existing) { existing.navigate(target); return existing.focus(); }
     return self.clients.openWindow(target);
-  }));
+  });
+  event.waitUntil(Promise.all([markRead,open]));
 });
 
