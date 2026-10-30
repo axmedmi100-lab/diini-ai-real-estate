@@ -24,7 +24,16 @@ async function run(request:Request){
     }
     if(errors.length)await supabase.from("notifications").update({push_error:errors.join("; ").slice(0,1000)}).eq("id",item.id);
   }
-  return NextResponse.json({ok:true,processed:notifications?.length??0,sent,failed,removed});
+  const{data:alerts,error:alertsError}=await supabase.from("platform_alerts").select("id,title,body,severity").eq("status","open").is("push_processed_at",null).order("last_seen_at",{ascending:true}).limit(25);
+  if(!alertsError)for(const alert of alerts??[]){
+    const{data:claimed}=await supabase.from("platform_alerts").update({push_processed_at:new Date().toISOString(),push_error:null}).eq("id",alert.id).is("push_processed_at",null).select("id").maybeSingle();
+    if(!claimed)continue;
+    const{data:adminDevices}=await supabase.from("push_subscriptions").select("id,endpoint,p256dh,auth_key").eq("platform_admin",true);
+    const errors:string[]=[];
+    for(const subscription of adminDevices??[]){try{await webpush.sendNotification({endpoint:subscription.endpoint,keys:{p256dh:subscription.p256dh,auth:subscription.auth_key}},JSON.stringify({title:`DIINI ${alert.severity.toUpperCase()}: ${alert.title}`,body:alert.body,tag:alert.id,url:"/admin/system"}),{TTL:3600});sent++;}catch(error){const status=typeof error==="object"&&error&&"statusCode" in error?Number(error.statusCode):0;if(status===404||status===410){await supabase.from("push_subscriptions").delete().eq("id",subscription.id);removed++;}else{failed++;errors.push(error instanceof Error?error.message:"Push failed");}}}
+    if(errors.length)await supabase.from("platform_alerts").update({push_error:errors.join("; ").slice(0,1000)}).eq("id",alert.id);
+  }
+  return NextResponse.json({ok:true,processed:(notifications?.length??0)+(alerts?.length??0),sent,failed,removed});
 }
 export async function GET(request:Request){return run(request);}
 export async function POST(request:Request){return run(request);}
