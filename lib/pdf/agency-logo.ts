@@ -1,4 +1,4 @@
-import type { PDFDocument, PDFImage, PDFPage } from "pdf-lib";
+import { rgb, type PDFDocument, type PDFImage, type PDFPage } from "pdf-lib";
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
@@ -31,6 +31,16 @@ export async function embedAgencyLogo(pdf: PDFDocument, url?: string | null): Pr
 
 export function drawAgencyLogo(page: PDFPage, logo: PDFImage | null, x = 48, y = 774, box = 54) {
   if (!logo) return;
+  const padding = 5;
+  page.drawRectangle({
+    x: x - padding,
+    y: y - padding,
+    width: box + padding * 2,
+    height: box + padding * 2,
+    color: rgb(1, 1, 1),
+    borderColor: rgb(0.86, 0.89, 0.92),
+    borderWidth: 0.75,
+  });
   const scale = Math.min(box / logo.width, box / logo.height);
   const width = logo.width * scale;
   const height = logo.height * scale;

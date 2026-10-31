@@ -5,13 +5,16 @@ import test from "node:test";
 const read = (path) => readFile(path, "utf8");
 
 test("agency logo is embedded across every generated PDF", async () => {
-  const [transaction, billing, transactionRoute, leaseRoute, billingRoute] = await Promise.all([
+  const [logoHelper, transaction, billing, transactionRoute, leaseRoute, billingRoute] = await Promise.all([
+    read("lib/pdf/agency-logo.ts"),
     read("lib/pdf/transaction-document.ts"),
     read("lib/pdf/billing-invoice.ts"),
     read("app/api/transactions/[id]/pdf/route.ts"),
     read("app/api/leases/[id]/pdf/route.ts"),
     read("app/api/billing/invoices/[id]/pdf/route.ts"),
   ]);
+  assert.match(logoHelper, /color: rgb\(1, 1, 1\)/);
+  assert.match(logoHelper, /borderColor:/);
   assert.match(transaction, /embedAgencyLogo\(pdf, data\.agencyLogoUrl\)/);
   assert.match(transaction, /drawAgencyLogo\(page, logo\)/);
   assert.match(billing, /embedAgencyLogo\(pdf, data\.agencyLogoUrl\)/);
