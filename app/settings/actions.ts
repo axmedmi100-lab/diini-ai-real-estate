@@ -36,8 +36,6 @@ export async function updateAgency(formData: FormData) {
 const allowedLogoTypes = new Map([
   ["image/png", "png"],
   ["image/jpeg", "jpg"],
-  ["image/webp", "webp"],
-  ["image/svg+xml", "svg"],
 ]);
 
 export async function updateAgencyLogo(formData: FormData) {
@@ -47,7 +45,7 @@ export async function updateAgencyLogo(formData: FormData) {
   if (!(logo instanceof File) || !logo.size) redirect("/settings?error=Dooro sawirka logo-ga.");
   if (logo.size > 2 * 1024 * 1024) redirect("/settings?error=Logo-gu waa inuu ka yaraadaa 2 MB.");
   const extension = allowedLogoTypes.get(logo.type);
-  if (!extension) redirect("/settings?error=Logo-gu waa inuu noqdaa PNG, JPG, WebP ama SVG.");
+  if (!extension) redirect("/settings?error=Logo-gu waa inuu noqdaa PNG ama JPG si PDF-yada loogu daabaco.");
 
   const path = `${agency.id}/logo.${extension}`;
   const { error: uploadError } = await supabase.storage.from("agency-branding").upload(path, logo, { contentType: logo.type, upsert: true, cacheControl: "3600" });

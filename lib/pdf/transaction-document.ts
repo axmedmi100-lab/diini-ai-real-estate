@@ -1,7 +1,9 @@
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { drawAgencyLogo, embedAgencyLogo } from "./agency-logo";
 
 export type TransactionPdfData = {
   agencyName: string;
+  agencyLogoUrl?: string | null;
   customerName: string;
   customerPhone?: string | null;
   propertyTitle: string;
@@ -37,12 +39,15 @@ export async function createTransactionPdf(data: TransactionPdfData) {
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const page = pdf.addPage([595, 842]);
+  const logo = await embedAgencyLogo(pdf, data.agencyLogoUrl);
   const receipt = data.receiptPaymentId ? data.payments.find((item) => item.id === data.receiptPaymentId) : null;
   const title = receipt ? "PAYMENT RECEIPT" : "TRANSACTION INVOICE";
 
   page.drawRectangle({ x: 0, y: 750, width: 595, height: 92, color: ink });
-  text(page, bold, safe(data.agencyName).toUpperCase(), 48, 805, 17, rgb(1, 1, 1));
-  text(page, regular, "REAL ESTATE", 48, 785, 9, green);
+  drawAgencyLogo(page, logo);
+  const brandX = logo ? 116 : 48;
+  text(page, bold, safe(data.agencyName).toUpperCase(), brandX, 805, 17, rgb(1, 1, 1));
+  text(page, regular, "REAL ESTATE", brandX, 785, 9, green);
   text(page, bold, title, 365, 799, 15, rgb(1, 1, 1));
   text(page, regular, `Document: ${receipt ? receipt.id.slice(0, 8) : data.transactionId.slice(0, 8)}`, 365, 780, 9, rgb(0.75, 0.8, 0.86));
 
@@ -102,14 +107,17 @@ export async function createTransactionPdf(data: TransactionPdfData) {
   return pdf.save();
 }
 
-export async function createLeaseAgreementPdf(data: { agencyName: string; propertyTitle: string; propertyAddress?: string | null; tenantName: string; tenantPhone?: string | null; currency: string; startDate: string; endDate?: string | null; monthlyRent: number; securityDeposit: number; notes?: string | null }) {
+export async function createLeaseAgreementPdf(data: { agencyName: string; agencyLogoUrl?: string | null; propertyTitle: string; propertyAddress?: string | null; tenantName: string; tenantPhone?: string | null; currency: string; startDate: string; endDate?: string | null; monthlyRent: number; securityDeposit: number; notes?: string | null }) {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const page = pdf.addPage([595, 842]);
+  const logo = await embedAgencyLogo(pdf, data.agencyLogoUrl);
   page.drawRectangle({ x: 0, y: 750, width: 595, height: 92, color: ink });
-  text(page, bold, safe(data.agencyName).toUpperCase(), 48, 805, 17, rgb(1,1,1));
-  text(page, regular, "REAL ESTATE", 48, 785, 9, green);
+  drawAgencyLogo(page, logo);
+  const brandX = logo ? 116 : 48;
+  text(page, bold, safe(data.agencyName).toUpperCase(), brandX, 805, 17, rgb(1,1,1));
+  text(page, regular, "REAL ESTATE", brandX, 785, 9, green);
   text(page, bold, "LEASE AGREEMENT", 380, 797, 15, rgb(1,1,1));
   text(page, bold, "TENANT", 48, 710, 9, green); text(page, bold, data.tenantName, 48, 687, 14);
   if (data.tenantPhone) text(page, regular, data.tenantPhone, 48, 669, 10, muted);

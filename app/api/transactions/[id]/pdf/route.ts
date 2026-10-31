@@ -18,6 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const property = one(transaction.properties as Related | Related[] | null);
   const bytes = await createTransactionPdf({
     agencyName: agency.name,
+    agencyLogoUrl: agency.logo_url,
     customerName: customer?.name || customer?.phone || "Customer",
     customerPhone: customer?.phone,
     propertyTitle: property?.title || "Property",

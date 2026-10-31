@@ -12,6 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!payment) return new Response("Approved payment not found", { status: 404 });
   const bytes = await createBillingInvoicePdf({
     agencyName: agency.name,
+    agencyLogoUrl: agency.logo_url,
     invoiceId: invoice.id,
     planCode: payment.plan_code,
     status: invoice.status,

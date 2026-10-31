@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     supabase.from("properties").select("title,address,district,currency,price").eq("id", lease.property_id).eq("agency_id", agency.id).maybeSingle(),
   ]);
   if (!customer || !property) return new Response("Lease parties not found", { status: 404 });
-  const bytes = await createLeaseAgreementPdf({ agencyName: agency.name, propertyTitle: property.title, propertyAddress: property.address || property.district, tenantName: customer.name || customer.phone || "Tenant", tenantPhone: customer.phone, currency: property.currency || "USD", startDate: lease.start_date, endDate: lease.end_date, monthlyRent: Number(lease.monthly_rent ?? property.price), securityDeposit: Number(lease.security_deposit ?? 0), notes: lease.lease_notes });
+  const bytes = await createLeaseAgreementPdf({ agencyName: agency.name, agencyLogoUrl: agency.logo_url, propertyTitle: property.title, propertyAddress: property.address || property.district, tenantName: customer.name || customer.phone || "Tenant", tenantPhone: customer.phone, currency: property.currency || "USD", startDate: lease.start_date, endDate: lease.end_date, monthlyRent: Number(lease.monthly_rent ?? property.price), securityDeposit: Number(lease.security_deposit ?? 0), notes: lease.lease_notes });
   return new Response(Buffer.from(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="lease-agreement-${id.slice(0,8)}.pdf"`, "Cache-Control": "private, no-store" } });
 }
 

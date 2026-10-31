@@ -1,7 +1,9 @@
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { drawAgencyLogo, embedAgencyLogo } from "./agency-logo";
 
 export type BillingInvoicePdfData = {
   agencyName: string;
+  agencyLogoUrl?: string | null;
   invoiceId: string;
   planCode: string;
   status: string;
@@ -31,9 +33,12 @@ export async function createBillingInvoicePdf(data: BillingInvoicePdfData) {
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const page = pdf.addPage([595, 842]);
+  const logo = await embedAgencyLogo(pdf, data.agencyLogoUrl);
   page.drawRectangle({ x: 0, y: 750, width: 595, height: 92, color: ink });
-  drawText(page, bold, data.agencyName.toUpperCase(), 48, 805, 17, rgb(1, 1, 1));
-  drawText(page, regular, "DIINI AI REAL ESTATE", 48, 783, 9, green);
+  drawAgencyLogo(page, logo);
+  const brandX = logo ? 116 : 48;
+  drawText(page, bold, data.agencyName.toUpperCase(), brandX, 805, 17, rgb(1, 1, 1));
+  drawText(page, regular, "POWERED BY DIINI AI", brandX, 783, 9, green);
   drawText(page, bold, "SUBSCRIPTION INVOICE", 350, 799, 14, rgb(1, 1, 1));
   drawText(page, regular, `Invoice: ${data.invoiceId.slice(0, 8).toUpperCase()}`, 350, 779, 9, rgb(0.75, 0.8, 0.86));
 
