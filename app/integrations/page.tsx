@@ -23,7 +23,7 @@ export default async function IntegrationsPage() {
   const states = new Map((rows ?? []).map((row) => [row.provider, row]));
 
   return (
-    <AppShell agencyName={agency.name} currentPath="/integrations" logoutAction={logout} userEmail={user.email}>
+    <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/integrations" logoutAction={logout} userEmail={user.email}>
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
         <PageHeading eyebrow="Channels & connections" title="Integrations" description="Hal meel ka eeg xaaladda channels-ka agency-ga. Xiriirrada mustaqbalka si cad ayaa loo kala saaray." />
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">

@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 
 type Message = { sender_type: "customer" | "ai" | "agent" | "system"; message: string; properties?: Property[] };
 type Property = { id: string; title: string; district: string; price: number; currency: string; bedrooms: number | null; bathrooms: number | null; image_urls: string[] };
-type Config = { agency_name: string; assistant_name: string; is_enabled: boolean };
+type Config = { agency_name: string; logo_url?: string | null; assistant_name: string; is_enabled: boolean };
 
 async function readJsonResponse(response: Response) {
   const text = await response.text();
@@ -78,7 +78,7 @@ export function PropertyChatWidget({ agencyId }: { agencyId: string }) {
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-2xl">
-      <header className="bg-slate-950 px-5 py-4 text-white"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400 font-black text-slate-950">AI</div><div><h1 className="font-bold">{config?.assistant_name || "AI Property Assistant"}</h1><p className="text-xs text-slate-400">{config?.agency_name || "DIINI AI"} · Online</p></div></div></header>
+      <header className="bg-slate-950 px-5 py-4 text-white"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-emerald-400 font-black text-slate-950">{config?.logo_url ? <img alt={`${config.agency_name} logo`} className="h-full w-full bg-white object-contain p-1" src={config.logo_url} /> : "AI"}</div><div><h1 className="font-bold">{config?.assistant_name || "AI Property Assistant"}</h1><p className="text-xs text-slate-400">{config?.agency_name || "DIINI AI"} · Online</p></div></div></header>
       <section className="flex-1 space-y-4 overflow-y-auto bg-slate-50 p-4">
         {loading ? <p className="py-12 text-center text-sm text-slate-500">Chat-ka ayaa furmaya...</p> : null}
         {messages.map((item, index) => <div className={item.sender_type === "customer" ? "ml-auto max-w-[85%]" : "mr-auto max-w-[92%]"} key={`${index}-${item.message.slice(0, 10)}`}><div className={`rounded-2xl px-4 py-3 text-sm leading-6 ${item.sender_type === "customer" ? "rounded-br-md bg-slate-950 text-white" : "rounded-bl-md border border-slate-200 bg-white text-slate-700"}`}>{item.message}</div>{item.properties?.map((property) => { const image = Array.isArray(property.image_urls) ? property.image_urls[0] : null; return <article className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white" key={property.id}>{image ? <div className="h-28 bg-cover bg-center" style={{ backgroundImage: `url(${image})` }} /> : null}<div className="p-3"><h2 className="text-sm font-bold text-slate-950">{property.title}</h2><p className="mt-1 text-xs text-slate-500">{property.district} · {property.bedrooms ?? 0} qol</p><p className="mt-2 font-bold text-emerald-700">{new Intl.NumberFormat("en", { style: "currency", currency: property.currency, maximumFractionDigits: 0 }).format(Number(property.price))}</p><button className="mt-3 w-full rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950" onClick={() => setBookingProperty(property)} type="button">Codso viewing</button></div></article>; })}</div>)}

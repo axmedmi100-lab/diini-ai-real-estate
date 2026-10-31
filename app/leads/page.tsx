@@ -27,7 +27,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const canCreate = ["owner", "admin", "manager", "agent", "receptionist"].includes(membership.role);
 
   return (
-    <AppShell agencyName={agency.name} currentPath="/leads" logoutAction={logout} userEmail={user.email}>
+    <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/leads" logoutAction={logout} userEmail={user.email}>
       <div className="mx-auto w-full max-w-7xl space-y-7">
         <PageHeading eyebrow="Sales pipeline" title="Lead CRM" description="Maamul dadka danaynaya, requirements-kooda iyo marxaladda iibka." action={canCreate ? <Link className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-sm" href="/leads/new">+ Lead cusub</Link> : null} />
         <AuthMessage error={params.error} message={params.message} />
@@ -44,3 +44,4 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     </AppShell>
   );
 }
+

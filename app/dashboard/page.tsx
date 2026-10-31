@@ -27,7 +27,7 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <AppShell agencyName={agency.name} currentPath="/dashboard" logoutAction={logout} userEmail={user.email}>
+    <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/dashboard" logoutAction={logout} userEmail={user.email}>
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
         <PageHeading eyebrow="Agency overview" title={`Ku soo dhowow, ${agency.name}`} description="La soco properties-ka, leads-ka iyo hawlaha team-kaaga hal dashboard oo ammaan ah." action={<span className="w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold capitalize text-emerald-800">{membership.role}</span>} />
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

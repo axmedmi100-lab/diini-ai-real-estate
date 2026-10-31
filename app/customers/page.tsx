@@ -17,7 +17,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   }
   const { data: customers } = await request;
   void membership;
-  return <AppShell agencyName={agency.name} currentPath="/customers" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-7xl space-y-7">
+  return <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/customers" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-7xl space-y-7">
     <PageHeading eyebrow="CRM" title="Customers" description="Customer waa qof buy, rent, reserve ama deposit ku sameeyey property." action={<span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold shadow-sm">{customers?.length ?? 0} customers</span>} />
     <AuthMessage error={params.error} message={params.message} />
     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">Qof cusub marka hore Lead ahaan u geli. Markaad property transaction ka diiwaangeliso bogga Lead-ka, si otomaatig ah Customer ayuu noqonayaa.</div>

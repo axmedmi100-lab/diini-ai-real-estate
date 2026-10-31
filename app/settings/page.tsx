@@ -1,5 +1,5 @@
 import { logout } from "@/app/(auth)/actions";
-import { updateAgency } from "@/app/settings/actions";
+import { removeAgencyLogo, updateAgency, updateAgencyLogo } from "@/app/settings/actions";
 import { AuthMessage } from "@/components/auth/auth-message";
 import { PageHeading } from "@/components/dashboard/page-heading";
 import { AppShell } from "@/components/layout/app-shell";
@@ -12,9 +12,20 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const inputClass = "mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100";
 
   return (
-    <AppShell agencyName={agency.name} currentPath="/settings" logoutAction={logout} userEmail={user.email}>
+    <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/settings" logoutAction={logout} userEmail={user.email}>
       <div className="mx-auto w-full max-w-5xl space-y-8">
         <PageHeading eyebrow="Workspace" title="Agency settings" description="Maamul magaca, xiriirka iyo defaults-ka agency-gaaga." />
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-inner">
+                {agency.logo_url ? <img alt={`${agency.name} logo`} className="h-full w-full object-contain p-2" src={agency.logo_url} /> : <span className="text-3xl font-black text-emerald-600">{agency.name.slice(0, 2).toUpperCase()}</span>}
+              </div>
+              <div><p className="text-xs font-black tracking-[.16em] text-emerald-700 uppercase">Agency branding</p><h2 className="mt-1 text-xl font-black">Logo-ga agency-ga</h2><p className="mt-1 text-sm text-slate-500">PNG, JPG, WebP ama SVG · ugu badnaan 2 MB.</p></div>
+            </div>
+            {canEdit ? <div className="flex flex-wrap gap-2"><form action={updateAgencyLogo} className="flex flex-wrap items-center gap-2"><input accept="image/png,image/jpeg,image/webp,image/svg+xml" className="max-w-56 rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:font-bold file:text-white" name="logo" required type="file" /><button className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400" type="submit">Kaydi logo</button></form>{agency.logo_url ? <form action={removeAgencyLogo}><button className="rounded-xl border border-rose-200 px-4 py-3 text-sm font-bold text-rose-700 hover:bg-rose-50" type="submit">Ka saar</button></form> : null}</div> : null}
+          </div>
+        </section>
         <form action={updateAgency} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <AuthMessage error={params.error} message={params.message} />
           <div className="mt-2 grid gap-5 sm:grid-cols-2">
@@ -34,3 +45,4 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     </AppShell>
   );
 }
+

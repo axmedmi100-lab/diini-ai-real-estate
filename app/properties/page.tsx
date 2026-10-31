@@ -15,7 +15,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   const canCreate = ["owner", "admin", "manager", "agent"].includes(membership.role);
 
   return (
-    <AppShell agencyName={agency.name} currentPath="/properties" logoutAction={logout} userEmail={user.email}>
+    <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/properties" logoutAction={logout} userEmail={user.email}>
       <div className="mx-auto w-full max-w-7xl space-y-8">
         <PageHeading eyebrow="Inventory" title="Properties" description="Dhammaan guryaha iyo listings-ka ay agency-gu maamusho." action={canCreate ? <Link className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-slate-800" href="/properties/new">+ Property cusub</Link> : null} />
         <AuthMessage error={messages.error} message={messages.message} />
@@ -26,3 +26,4 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
     </AppShell>
   );
 }
+

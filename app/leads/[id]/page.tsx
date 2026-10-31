@@ -26,7 +26,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const matches = rankProperties({ purpose: lead.purpose, district: lead.district, budget_min: lead.budget_min === null ? null : Number(lead.budget_min), budget_max: lead.budget_max === null ? null : Number(lead.budget_max), bedrooms: lead.bedrooms, property_type: lead.property_type, furnished: lead.furnished }, (properties ?? []).map((property) => ({ ...property, price: Number(property.price) }))).slice(0, 5);
 
   return (
-    <AppShell agencyName={agency.name} currentPath="/leads" logoutAction={logout} userEmail={user.email}>
+    <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/leads" logoutAction={logout} userEmail={user.email}>
       <div className="mx-auto w-full max-w-6xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3"><Link className="text-sm font-bold text-slate-600" href="/leads">← Leads</Link><div className="flex items-center gap-2">{canEdit ? <Link className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white" href={`/leads/${id}/edit`}>Edit</Link> : null}{canDelete ? <DeleteLeadButton action={deleteLead} leadId={id} /> : null}</div></div>
         <AuthMessage error={messages.error} message={messages.message} />

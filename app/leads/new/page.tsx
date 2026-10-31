@@ -13,5 +13,6 @@ export default async function NewLeadPage({ searchParams }: { searchParams: Prom
   const { error } = await searchParams;
   if (!["owner", "admin", "manager", "agent", "receptionist"].includes(membership.role)) return null;
   const agents = await getAssignableAgents(supabase, agency.id);
-  return <AppShell agencyName={agency.name} currentPath="/leads" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-4xl space-y-8"><PageHeading eyebrow="Lead CRM" title="Lead cusub" description="Diiwaangeli xiriirka qofka iyo property-ga uu raadinayo." action={<Link className="text-sm font-bold text-slate-600" href="/leads">← Dib u noqo</Link>} /><LeadForm action={createLead} agents={agents} error={error} /></div></AppShell>;
+  return <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/leads" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-4xl space-y-8"><PageHeading eyebrow="Lead CRM" title="Lead cusub" description="Diiwaangeli xiriirka qofka iyo property-ga uu raadinayo." action={<Link className="text-sm font-bold text-slate-600" href="/leads">← Dib u noqo</Link>} /><LeadForm action={createLead} agents={agents} error={error} /></div></AppShell>;
 }
+

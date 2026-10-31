@@ -25,7 +25,7 @@ export default async function ViewingsPage({ searchParams }: { searchParams: Pro
   const leadMap = new Map(leads?.map((item) => [item.id, item.name || item.phone || "Lead aan magac lahayn"]));
   const propertyMap = new Map(properties?.map((item) => [item.id, `${item.title} · ${item.district}`]));
   const canCreate = ["owner", "admin", "manager", "agent", "receptionist"].includes(membership.role);
-  return <AppShell agencyName={agency.name} currentPath="/viewings" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-7xl space-y-7">
+  return <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/viewings" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-7xl space-y-7">
     <PageHeading eyebrow="Appointments" title="Viewings" description="Qorshee, xaqiiji oo la soco booqashooyinka properties-ka." action={canCreate ? <Link className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white" href="/viewings/new">+ Viewing cusub</Link> : null} />
     <AuthMessage error={params.error} message={params.message} />
     <div className="flex flex-wrap gap-2"><Link className="rounded-full border bg-white px-3 py-1.5 text-xs font-bold" href="/viewings">Dhammaan</Link>{Object.keys(colors).map((status) => <Link className={`rounded-full px-3 py-1.5 text-xs font-bold ${params.status === status ? "bg-slate-950 text-white" : colors[status]}`} href={`/viewings?status=${status}`} key={status}>{status}</Link>)}</div>

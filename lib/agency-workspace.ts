@@ -31,6 +31,7 @@ export async function getAgencyWorkspace() {
     email: string | null;
     website: string | null;
     address: string | null;
+    logo_url: string | null;
     country_code: string;
     timezone: string;
     default_language: string;
@@ -46,3 +47,4 @@ export async function getAgencyWorkspace() {
 
   return { supabase, user, membership, agency };
 }
+

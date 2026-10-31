@@ -27,7 +27,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
   ];
 
   return (
-    <AppShell agencyName={agency.name} currentPath="/agents" logoutAction={logout} userEmail={user.email}>
+    <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/agents" logoutAction={logout} userEmail={user.email}>
       <div className="mx-auto w-full max-w-6xl space-y-8">
         <PageHeading eyebrow="Team" title="Agents" description="Dadka ka shaqeeya workspace-kan iyo roles-kooda." action={<span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm">{members?.length ?? 0} members</span>} />
         <AuthMessage error={query.error} message={query.message} />

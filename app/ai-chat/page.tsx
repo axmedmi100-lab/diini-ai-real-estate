@@ -56,7 +56,7 @@ export default async function AIChatPage({ searchParams }: { searchParams: Promi
   }
 
   return (
-    <AppShell agencyName={agency.name} currentPath="/ai-chat" logoutAction={logout} userEmail={user.email}>
+    <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/ai-chat" logoutAction={logout} userEmail={user.email}>
       <div className="mx-auto w-full max-w-[1440px] space-y-6">
         <section className="relative overflow-hidden rounded-[2rem] bg-[#071522] px-6 py-7 text-white shadow-[0_20px_60px_rgba(2,12,27,.16)] sm:px-8 sm:py-9">
           <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />

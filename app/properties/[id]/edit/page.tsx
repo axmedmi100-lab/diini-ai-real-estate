@@ -15,5 +15,6 @@ export default async function EditPropertyPage({ params, searchParams }: { param
   if (!["owner", "admin", "manager", "agent"].includes(membership.role)) return null;
   const { data: property } = await supabase.from("properties").select("*").eq("id", id).eq("agency_id", agency.id).maybeSingle();
   if (!property) notFound();
-  return <AppShell agencyName={agency.name} currentPath="/properties" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-4xl space-y-8"><PageHeading eyebrow="Property CRUD" title="Wax ka beddel property-ga" description="Cusboonaysii listing-ka iyo xaaladdiisa." action={<Link className="text-sm font-bold text-slate-600" href={`/properties/${id}`}>← Faahfaahinta</Link>} /><PropertyForm action={updateProperty} error={error} property={property} /></div></AppShell>;
+  return <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/properties" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-4xl space-y-8"><PageHeading eyebrow="Property CRUD" title="Wax ka beddel property-ga" description="Cusboonaysii listing-ka iyo xaaladdiisa." action={<Link className="text-sm font-bold text-slate-600" href={`/properties/${id}`}>← Faahfaahinta</Link>} /><PropertyForm action={updateProperty} error={error} property={property} /></div></AppShell>;
 }
+

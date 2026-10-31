@@ -26,7 +26,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
   const stats = ["pending", "sent", "failed", "opted_out"].map((status) => ({ status, count: followUps?.filter((item) => item.status === status).length ?? 0 }));
   const activeView = params.view ?? "scheduled";
   const visibleFollowUps = followUps?.filter((item) => activeView === "completed" ? item.status === "sent" : activeView === "failed" ? item.status === "failed" : ["pending", "processing"].includes(item.status));
-  return <AppShell agencyName={agency.name} currentPath="/follow-ups" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-7xl space-y-8">
+  return <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/follow-ups" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-7xl space-y-8">
     <PageHeading eyebrow="Automation" title="Follow-ups" description="Jadwal fariimo, samee rules, oo ixtiraam customer opt-out si aan spam loo dirin." />
     <AuthMessage error={params.error} message={params.message} />
     <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">{stats.map((item) => <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" key={item.status}><p className="text-xs font-bold capitalize text-slate-500">{item.status.replace("_", " ")}</p><p className="mt-2 text-2xl font-black text-slate-950">{item.count}</p></div>)}</section>

@@ -16,5 +16,6 @@ export default async function EditLeadPage({ params, searchParams }: { params: P
   if (!["owner", "admin", "manager", "agent", "receptionist"].includes(membership.role)) return null;
   const [{ data: lead }, agents] = await Promise.all([supabase.from("leads").select("*").eq("id", id).eq("agency_id", agency.id).maybeSingle(), getAssignableAgents(supabase, agency.id)]);
   if (!lead) notFound();
-  return <AppShell agencyName={agency.name} currentPath="/leads" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-4xl space-y-8"><PageHeading eyebrow="Lead CRM" title="Wax ka beddel lead-ka" description="Cusboonaysii requirements-ka, status-ka iyo agent-ka." action={<Link className="text-sm font-bold text-slate-600" href={`/leads/${id}`}>← Faahfaahinta</Link>} /><LeadForm action={updateLead} agents={agents} error={error} lead={lead} /></div></AppShell>;
+  return <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/leads" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-4xl space-y-8"><PageHeading eyebrow="Lead CRM" title="Wax ka beddel lead-ka" description="Cusboonaysii requirements-ka, status-ka iyo agent-ka." action={<Link className="text-sm font-bold text-slate-600" href={`/leads/${id}`}>← Faahfaahinta</Link>} /><LeadForm action={updateLead} agents={agents} error={error} lead={lead} /></div></AppShell>;
 }
+

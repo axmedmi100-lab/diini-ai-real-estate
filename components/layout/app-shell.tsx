@@ -41,14 +41,14 @@ function NavIcon({ name }: Readonly<{ name: string }>) {
   return <svg aria-hidden className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">{paths[name]}</svg>;
 }
 
-type AppShellProps = Readonly<{ children: ReactNode; currentPath: string; agencyName?: string; userEmail?: string; logoutAction?: () => Promise<void> }>;
+type AppShellProps = Readonly<{ children: ReactNode; currentPath: string; agencyName?: string; agencyLogoUrl?: string | null; userEmail?: string; logoutAction?: () => Promise<void> }>;
 
-export function AppShell({ children, currentPath, agencyName = "DIINI Real Estate", userEmail, logoutAction }: AppShellProps) {
+export function AppShell({ children, currentPath, agencyName = "DIINI Real Estate", agencyLogoUrl, userEmail, logoutAction }: AppShellProps) {
   const initials = agencyName.split(" ").slice(0, 2).map((word) => word[0]).join("").toUpperCase();
   return (
     <div className="min-h-screen bg-[#f5f7f9] lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
       <aside className="hidden min-h-screen border-r border-white/5 bg-[#08111f] px-3 py-5 text-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
-        <div className="px-2"><Brand inverted /></div>
+        <div className="px-2"><Brand inverted logoUrl={agencyLogoUrl} name={agencyName} subtitle="Powered by DIINI AI" /></div>
         <div className="mx-1 mt-7 flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[.045] p-3.5">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-400/15 text-xs font-black text-emerald-300">{initials}</span>
           <div className="min-w-0"><p className="text-[9px] font-bold tracking-[.18em] text-slate-500 uppercase">Agency workspace</p><p className="mt-1 truncate text-[13px] font-semibold text-slate-100">{agencyName}</p></div>
@@ -62,7 +62,7 @@ export function AppShell({ children, currentPath, agencyName = "DIINI Real Estat
       <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden">
         <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/85 backdrop-blur-xl">
           <div className="flex min-h-[4.5rem] items-center justify-between gap-4 px-4 sm:px-7 lg:px-10">
-            <div className="lg:hidden"><Brand /></div><div className="hidden lg:block"><p className="text-[10px] font-bold tracking-[.18em] text-slate-400 uppercase">Workspace</p><p className="mt-0.5 text-sm font-semibold text-slate-800">{agencyName}</p></div>
+            <div className="lg:hidden"><Brand logoUrl={agencyLogoUrl} name={agencyName} subtitle="Powered by DIINI AI" /></div><div className="hidden lg:block"><p className="text-[10px] font-bold tracking-[.18em] text-slate-400 uppercase">Workspace</p><p className="mt-0.5 text-sm font-semibold text-slate-800">{agencyName}</p></div>
             <div className="flex items-center gap-3"><Link className="relative grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-emerald-200 hover:text-emerald-700" href="/notifications"><NavIcon name="bell"/><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-white"/></Link>{userEmail ? <div className="hidden items-center gap-2.5 rounded-xl border border-slate-200 bg-white py-1.5 pl-2 pr-3 shadow-sm sm:flex"><span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-900 text-[10px] font-bold text-white">{userEmail.slice(0, 1).toUpperCase()}</span><span className="max-w-44 truncate text-xs font-medium text-slate-600">{userEmail}</span></div> : null}{logoutAction ? <form action={logoutAction}><button className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-700" type="submit">Ka bax</button></form> : null}</div>
           </div>
           <nav aria-label="Mobile navigation" className="overflow-x-auto border-t border-slate-100 px-4 lg:hidden [scrollbar-width:none]"><ul className="flex min-w-max gap-1 py-2">{navigation.map((item) => { const active = currentPath === item.href; return <li key={item.href}><Link aria-current={active ? "page" : undefined} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${active ? "bg-slate-950 text-white" : "text-slate-500"}`} href={item.href}><NavIcon name={item.icon}/>{item.label}</Link></li>; })}</ul></nav>

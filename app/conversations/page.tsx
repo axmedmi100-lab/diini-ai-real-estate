@@ -25,7 +25,7 @@ export default async function ConversationsPage({ searchParams }: { searchParams
   const { data: conversations } = await request;
 
   return (
-    <AppShell agencyName={agency.name} currentPath="/conversations" logoutAction={logout} userEmail={user.email}>
+    <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/conversations" logoutAction={logout} userEmail={user.email}>
       <div className="mx-auto w-full max-w-6xl space-y-7">
         <PageHeading eyebrow="Inbox" title="Conversations" description="Ka eeg wada-hadallada website-ka iyo kuwa u baahan agent bani-aadam ah." />
         <nav className="flex flex-wrap gap-2"><Link className={`rounded-xl px-4 py-2 text-sm font-bold ${!view ? "bg-slate-950 text-white" : "bg-white"}`} href="/conversations">Dhammaan</Link><Link className={`rounded-xl px-4 py-2 text-sm font-bold ${view === "handoff" ? "bg-amber-500 text-slate-950" : "bg-white"}`} href="/conversations?view=handoff">Human handoff</Link><Link className={`rounded-xl px-4 py-2 text-sm font-bold ${view === "mine" ? "bg-emerald-500 text-slate-950" : "bg-white"}`} href="/conversations?view=mine">Kuwa lay xilsaaray</Link></nav>
@@ -42,3 +42,4 @@ export default async function ConversationsPage({ searchParams }: { searchParams
     </AppShell>
   );
 }
+

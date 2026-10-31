@@ -24,7 +24,7 @@ export default async function TransactionDetailPage({ params, searchParams }: { 
   const property = one(transaction.properties as Row | Row[] | null);
   const currency = property?.currency || "USD";
   const canManage = new Set(["owner", "admin", "manager", "agent"]).has(membership.role);
-  return <AppShell agencyName={agency.name} currentPath="/transactions" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-4xl space-y-6">
+  return <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/transactions" logoutAction={logout} userEmail={user.email}><div className="mx-auto w-full max-w-4xl space-y-6">
     <Link className="text-sm font-bold text-slate-600" href="/transactions">← Transactions</Link>
     <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase text-emerald-700">Transaction detail</p><h1 className="mt-2 text-3xl font-black">{property?.title || "Property deal"}</h1><p className="mt-2 text-slate-500">{customer?.name || customer?.phone || "Customer"} · <span className="capitalize">{transaction.transaction_type}</span></p></div><a className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white" href={`/api/transactions/${transaction.id}/pdf`}>Download invoice PDF</a></div>
     <AuthMessage error={notice.error} message={notice.message} />

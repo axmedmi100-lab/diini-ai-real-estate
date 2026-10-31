@@ -38,7 +38,7 @@ export default async function PropertyDetailPage({ params, searchParams }: { par
   }).filter((item): item is NonNullable<typeof item> => item !== null).sort((a, b) => b.score - a.score).slice(0, 10);
 
   return (
-    <AppShell agencyName={agency.name} currentPath="/properties" logoutAction={logout} userEmail={user.email}>
+    <AppShell agencyLogoUrl={agency.logo_url} agencyName={agency.name} currentPath="/properties" logoutAction={logout} userEmail={user.email}>
       <div className="mx-auto w-full max-w-6xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3"><Link className="text-sm font-bold text-slate-600" href="/properties">← Properties</Link><div className="flex items-center gap-2">{canEdit ? <Link className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white" href={`/properties/${id}/edit`}>Edit</Link> : null}{canDelete ? <DeletePropertyButton action={deleteProperty} propertyId={id} /> : null}</div></div>
         <AuthMessage error={messages.error} message={messages.message} />
