@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Brand } from "./brand";
+import { AgencySwitcher } from "./agency-switcher";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: "grid" },
@@ -62,9 +63,10 @@ export function AppShell({ children, currentPath, agencyName = "DIINI Real Estat
       <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden">
         <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/85 backdrop-blur-xl">
           <div className="flex min-h-[4.5rem] items-center justify-between gap-4 px-4 sm:px-7 lg:px-10">
-            <div className="lg:hidden"><Brand logoUrl={agencyLogoUrl} name={agencyName} subtitle="Powered by DIINI AI" /></div><div className="hidden lg:block"><p className="text-[10px] font-bold tracking-[.18em] text-slate-400 uppercase">Workspace</p><p className="mt-0.5 text-sm font-semibold text-slate-800">{agencyName}</p></div>
+            <div className="lg:hidden"><Brand logoUrl={agencyLogoUrl} name={agencyName} subtitle="Powered by DIINI AI" /></div><div className="hidden items-center gap-4 lg:flex"><div><p className="text-[10px] font-bold tracking-[.18em] text-slate-400 uppercase">Workspace</p><p className="mt-0.5 text-sm font-semibold text-slate-800">{agencyName}</p></div><AgencySwitcher /></div>
             <div className="flex items-center gap-3"><Link className="relative grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-emerald-200 hover:text-emerald-700" href="/notifications"><NavIcon name="bell"/><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-white"/></Link>{userEmail ? <div className="hidden items-center gap-2.5 rounded-xl border border-slate-200 bg-white py-1.5 pl-2 pr-3 shadow-sm sm:flex"><span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-900 text-[10px] font-bold text-white">{userEmail.slice(0, 1).toUpperCase()}</span><span className="max-w-44 truncate text-xs font-medium text-slate-600">{userEmail}</span></div> : null}{logoutAction ? <form action={logoutAction}><button className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-700" type="submit">Ka bax</button></form> : null}</div>
           </div>
+          <div className="border-t border-slate-100 px-4 py-2 lg:hidden"><AgencySwitcher compact /></div>
           <nav aria-label="Mobile navigation" className="overflow-x-auto border-t border-slate-100 px-4 lg:hidden [scrollbar-width:none]"><ul className="flex min-w-max gap-1 py-2">{navigation.map((item) => { const active = currentPath === item.href; return <li key={item.href}><Link aria-current={active ? "page" : undefined} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${active ? "bg-slate-950 text-white" : "text-slate-500"}`} href={item.href}><NavIcon name={item.icon}/>{item.label}</Link></li>; })}</ul></nav>
         </header>
         <main className="flex min-w-0 flex-1 p-4 sm:p-7 lg:p-10">{children}</main>
