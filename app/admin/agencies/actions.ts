@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const statuses = new Set(["trial", "active", "suspended", "archived"]);
 const plans = new Set(["starter", "pro", "enterprise"]);
+const roles = new Set(["owner", "admin", "manager", "agent", "receptionist"]);
 
 export async function createAgency(formData: FormData) {
   const { supabase } = await getPlatformAdmin();
@@ -44,5 +45,33 @@ export async function updateAgencyLifecycle(formData: FormData) {
   revalidatePath("/admin"); revalidatePath("/admin/agencies");
   revalidatePath(`/admin/agencies/${agencyId}`);
   redirect(`/admin/agencies/${agencyId}?message=Agency-ga waa la cusboonaysiiyey.`);
+}
+
+export async function updateAgencyMember(formData: FormData) {
+  const { supabase } = await getPlatformAdmin();
+  const agencyId = String(formData.get("agency_id") ?? "");
+  const membershipId = String(formData.get("membership_id") ?? "");
+  const role = String(formData.get("role") ?? "");
+  const isActive = String(formData.get("is_active") ?? "") === "true";
+  const uuid = /^[0-9a-f-]{36}$/i;
+  if (!uuid.test(agencyId) || !uuid.test(membershipId) || !roles.has(role)) {
+    redirect(`/admin/agencies/${agencyId}?error=Xogta user-ka sax ma aha.`);
+  }
+  const { error } = await supabase.rpc("platform_update_agency_member", {
+    target_agency_id: agencyId,
+    target_membership_id: membershipId,
+    new_role: role,
+    new_is_active: isActive,
+  });
+  if (error) {
+    const message = error.message.includes("last active owner")
+      ? "Owner-ka keliya lama xannibi karo ama role-kiisa lama beddeli karo. Marka hore owner kale samee."
+      : error.message.includes("plan_limit_reached")
+        ? "User-ka lama hawlgelin karo; user limit-ka plan-ka ayaa buuxa."
+        : "User-ka lama cusboonaysiin.";
+    redirect(`/admin/agencies/${agencyId}?error=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(`/admin/agencies/${agencyId}`);
+  redirect(`/admin/agencies/${agencyId}?message=${encodeURIComponent("User-ka waa la cusboonaysiiyey.")}`);
 }
 
