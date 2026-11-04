@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 import { createClient } from "@/lib/supabase/server";
+
+export const ACTIVE_AGENCY_COOKIE = "diini_active_agency";
 
 export async function getAgencyWorkspace() {
   const supabase = await createClient();
@@ -8,13 +11,37 @@ export async function getAgencyWorkspace() {
 
   if (!user) redirect("/login");
 
-  const { data: membership, error } = await supabase
+  const selectedAgencyId = (await cookies()).get(ACTIVE_AGENCY_COOKIE)?.value;
+
+  let membershipQuery = supabase
     .from("agency_members")
     .select("id, agency_id, role, agencies(*)")
     .eq("user_id", user.id)
-    .eq("is_active", true)
+    .eq("is_active", true);
+
+  if (selectedAgencyId && /^[0-9a-f-]{36}$/i.test(selectedAgencyId)) {
+    membershipQuery = membershipQuery.eq("agency_id", selectedAgencyId);
+  }
+
+  let { data: membership, error } = await membershipQuery
+    .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
+
+  // A deleted, suspended or otherwise stale selection must never lock the user
+  // out. Fall back to their first active membership after validating the cookie.
+  if (!membership && selectedAgencyId) {
+    const fallback = await supabase
+      .from("agency_members")
+      .select("id, agency_id, role, agencies(*)")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    membership = fallback.data;
+    error = fallback.error;
+  }
 
   if (error || !membership) {
     const { data: isPlatformAdmin } = await supabase.rpc("is_platform_super_admin");
