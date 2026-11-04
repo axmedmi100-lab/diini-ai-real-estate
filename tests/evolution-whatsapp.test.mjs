@@ -12,14 +12,36 @@ test("Evolution webhook rejects unauthenticated and unsafe events", async () => 
   assert.match(webhook, /key\?\.fromMe/);
   assert.match(webhook, /@g\.us/);
   assert.match(webhook, /consume_api_rate_limit/);
+  assert.match(webhook, /getEvolutionInstanceByName/);
+  assert.doesNotMatch(webhook, /const expectedInstance = process\.env\.EVOLUTION_INSTANCE/);
 });
 
 test("Evolution outbound messages use a server-only API key", async () => {
-  const provider = await read("lib/whatsapp/meta.ts");
+  const provider = await read("lib/whatsapp/evolution.ts");
   assert.match(provider, /process\.env\.EVOLUTION_API_KEY/);
   assert.match(provider, /\/message\/sendText\//);
   assert.match(provider, /\/message\/sendMedia\//);
   assert.match(provider, /headers: \{ apikey: apiKey/);
+});
+
+test("Evolution onboarding maps one isolated instance to each agency", async () => {
+  const [migration, provider, actions, page] = await Promise.all([
+    read("supabase/migrations/202610310001_multi_agency_evolution.sql"),
+    read("lib/whatsapp/evolution.ts"),
+    read("app/integrations/whatsapp/actions.ts"),
+    read("app/integrations/whatsapp/page.tsx"),
+  ]);
+  assert.match(migration, /agency_id uuid primary key/);
+  assert.match(migration, /instance_name text not null unique/);
+  assert.match(migration, /force row level security/);
+  assert.match(provider, /agency-\$\{agencyId\.replaceAll/);
+  assert.match(provider, /\/instance\/create/);
+  assert.match(provider, /\/instance\/connect/);
+  assert.match(provider, /\/webhook\/set/);
+  assert.match(actions, /connectEvolutionWhatsApp/);
+  assert.match(actions, /hasAgencyPermission/);
+  assert.match(page, /Create WhatsApp QR/);
+  assert.match(page, /Linked devices/);
 });
 
 test("Evolution property matches send details and image media without accidental handoff", async () => {

@@ -6,12 +6,14 @@ import { asksForHumanAgent, extractChatRequirements, formatPropertyReply } from 
 import { contentLengthExceeds, logServerEvent, MAX_WEBHOOK_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { estimateAiCostUsd } from "@/lib/usage/ai-cost";
+import { getEvolutionInstanceByName } from "@/lib/whatsapp/evolution";
 import { sendWhatsAppImage, sendWhatsAppText } from "@/lib/whatsapp/meta";
 
 type EvolutionPayload = {
   event?: string;
   instance?: string;
   data?: {
+    state?: string;
     key?: { id?: string; remoteJid?: string; fromMe?: boolean };
     pushName?: string;
     messageType?: string;
@@ -158,19 +160,27 @@ export async function POST(request: Request) {
   let payload: EvolutionPayload;
   try { payload = JSON.parse(rawBody) as EvolutionPayload; } catch { return new NextResponse("Invalid JSON", { status: 400 }); }
 
-  const expectedInstance = process.env.EVOLUTION_INSTANCE;
-  const agencyId = process.env.EVOLUTION_AGENCY_ID;
+  const instanceName = payload.instance || "";
+  const mappedInstance = instanceName ? await getEvolutionInstanceByName(instanceName) : null;
+  if (!mappedInstance) return NextResponse.json({ received: true, ignored: "unknown_instance" });
+  const agencyId = mappedInstance.agencyId;
+  const supabase = createAdminClient();
+  if (payload.event?.toLowerCase() === "connection.update") {
+    const state = String(payload.data?.state ?? "connecting").toLowerCase();
+    const normalized = state === "open" ? "open" : state === "close" ? "close" : "connecting";
+    if (!mappedInstance.legacy) await supabase.from("evolution_instances").update({ connection_status: normalized, connected_at: normalized === "open" ? new Date().toISOString() : null }).eq("agency_id", agencyId).eq("instance_name", instanceName);
+    await supabase.from("integrations").update({ status: normalized === "open" ? "connected" : "disconnected", connected_at: normalized === "open" ? new Date().toISOString() : null, last_event_at: new Date().toISOString(), public_config: { provider_mode: "evolution", instance_name: instanceName } }).eq("agency_id", agencyId).eq("provider", "whatsapp");
+    return NextResponse.json({ received: true, connectionStatus: normalized });
+  }
   const remoteJid = payload.data?.key?.remoteJid || "";
   const incomingId = payload.data?.key?.id;
-  if (payload.event?.toLowerCase() !== "messages.upsert" || payload.instance !== expectedInstance) return NextResponse.json({ received: true, ignored: "event_or_instance" });
+  if (payload.event?.toLowerCase() !== "messages.upsert") return NextResponse.json({ received: true, ignored: "event" });
   if (payload.data?.key?.fromMe || remoteJid.endsWith("@g.us") || remoteJid === "status@broadcast") return NextResponse.json({ received: true, ignored: "outbound_or_group" });
   const message = messageText(payload);
-  if (!agencyId || !/^[0-9a-f-]{36}$/i.test(agencyId)) return new NextResponse("Evolution agency is not configured", { status: 503 });
   if (!incomingId || !remoteJid || !message) return NextResponse.json({ received: true, ignored: "unsupported_message_type" });
 
   const phone = normalizePhone(remoteJid);
   if (!phone) return NextResponse.json({ received: true, ignored: "invalid_sender" });
-  const supabase = createAdminClient();
   const { error: eventError } = await supabase.from("whatsapp_webhook_events").insert({ provider_message_id: `evolution:${incomingId}`, agency_id: agencyId });
   if (eventError?.code === "23505") return NextResponse.json({ received: true, duplicate: true });
   if (eventError) return new NextResponse("Event persistence failed", { status: 500 });
