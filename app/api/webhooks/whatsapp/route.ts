@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { guardAgainstRepeatedReply, historyWithoutCurrentMessage, normalizeCustomerText } from "@/lib/ai/conversation-safety";
+import { guardAgainstRepeatedReply, historyWithoutCurrentMessage, isViewingRequestText, propertySearchFailureReply } from "@/lib/ai/conversation-safety";
 import { extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
 import { contentLengthExceeds, logServerEvent, MAX_WEBHOOK_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,7 +14,7 @@ type MetaPayload = { entry?: Array<{ changes?: Array<{ field?: string; value?: M
 function normalizePhone(value: string) { return value.replace(/\D/g, ""); }
 
 function asksForViewing(message: string) {
-  return /(viewing|appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|daawado)/i.test(normalizeCustomerText(message));
+  return isViewingRequestText(message);
 }
 
 function parseViewingTime(message: string, now = new Date()) {
@@ -147,7 +147,18 @@ export async function POST(request: Request) {
     const { data, error } = await supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: requirement.purpose, wanted_district: requirement.district, min_budget: requirement.budget_min, max_budget: requirement.budget_max, min_bedrooms: requirement.bedrooms, wanted_property_type: requirement.property_type, wanted_furnished: requirement.furnished });
     if (error) {
       logServerEvent("error", "whatsapp.property_search_failed", { requestId: id, agencyId, error: error.message });
-      return new NextResponse("Property search temporarily unavailable", { status: 503, headers: { "X-Request-Id": id } });
+      const recoveryReply = propertySearchFailureReply(requirement.language);
+      let recoverySent = false;
+      try {
+        const outboundId = await sendWhatsAppText(agencyId, incoming.from, recoveryReply);
+        await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: recoveryReply, metadata: { provider: "meta_whatsapp", provider_message_id: outboundId, recovery: "property_search_failed" } });
+        await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
+        recoverySent = true;
+      } catch (recoveryError) {
+        logServerEvent("error", "whatsapp.property_search_recovery_failed", { requestId: id, agencyId, error: recoveryError instanceof Error ? recoveryError.message : "unknown" });
+        await supabase.from("notifications").insert({ agency_id: agencyId, type: "whatsapp_send_failed", title: "WhatsApp property search failed", body: "Customer message-ka waa la kaydiyey, laakiin search recovery reply lama dirin.", entity_type: "conversation", entity_id: conversation.id });
+      }
+      return NextResponse.json({ received: true, searchUnavailable: true, recoverySent }, { headers: { "X-Request-Id": id } });
     }
     propertyCount = data?.length ?? 0;
   }
