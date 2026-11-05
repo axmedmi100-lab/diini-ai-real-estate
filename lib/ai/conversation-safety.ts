@@ -8,7 +8,8 @@ const typoRules: Array<[RegExp, string]> = [
   [/\bbedrom\b/giu, "bedroom"],
   [/\brentel\b/giu, "rental"],
   [/\bpropety\b/giu, "property"],
-  [/\b(?:veiwing|veiw)\b/giu, "viewing"],
+  [/\bveiwing\b/giu, "viewing"],
+  [/\bveiw\b/giu, "view"],
 ];
 
 export function normalizeCustomerText(message: string) {
@@ -25,12 +26,42 @@ export function historyWithoutCurrentMessage(history: ConversationMessage[], cur
   return history;
 }
 
+export function isViewingRequestText(message: string) {
+  const normalized = normalizeCustomerText(message);
+  return /\b(viewing|view|appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|so{1,2}\s+arki|arkaa|arko|daawado)\b/i.test(normalized);
+}
+
 function comparable(value: string) {
   return normalizeCustomerText(value).replace(/[^\p{L}\p{N}$]+/gu, " ").trim();
 }
 
-function factualSearchReply(reply: string) {
-  return /(?:waxaan helay|ma helin property|i found \d+|couldn't find an available property)/i.test(reply);
+function unresolvedReply(reply: string) {
+  return /(?:su'aashaas si fiican uma fahmin|i did not fully understand|ii sheeg degmada.{0,30}budget-ka|tell me the district.{0,30}budget)/i.test(reply);
+}
+
+function clarificationFor(message: string, language: "so" | "en", propertySearch: boolean) {
+  const normalized = normalizeCustomerText(message);
+  if (/\b(?:qiime|qiimaha|kirada|meeqa|price|cost|how much)\b/i.test(normalized)) {
+    return language === "en" ? "Which property would you like the price for?" : "Property-gee ayaad rabtaa inaan qiimihiisa kuu sheego?";
+  }
+  if (/\b(?:xagee|halkee|goob|location|where)\b/i.test(normalized)) {
+    return language === "en" ? "Which property would you like the location for?" : "Property-gee ayaad rabtaa inaan goobtiisa kuu sheego?";
+  }
+  if (/\b(?:view|viewing|ballan|booqasho|arko)\b/i.test(normalized)) {
+    return language === "en" ? "Which property would you like to view, and what date and time suit you?" : "Property-gee ayaad rabtaa inaad aragto, taariikh iyo saacad noocee ahna kugu habboon?";
+  }
+  if (propertySearch) {
+    return language === "en"
+      ? "I understood your new search detail. What is the one remaining requirement: district, budget, bedrooms, or rent/buy?"
+      : "Xogtaada cusub waan fahmay. Maxay tahay xogta keliya ee weli ka maqan: degmada, budget-ka, qolalka, ama kiro/iib?";
+  }
+  return language === "en" ? "Could you clarify what you would like to know?" : "Fadlan ii caddee waxa aad rabto inaan kuu sheego.";
+}
+
+export function propertySearchFailureReply(language: "so" | "en") {
+  return language === "en"
+    ? "Property search is temporarily unavailable. Your message was saved; please try the search again shortly."
+    : "Property raadinta si ku-meel-gaar ah looma heli karo. Fariintaada waa la kaydiyey; fadlan wax yar kadib mar kale isku day.";
 }
 
 export function guardAgainstRepeatedReply(input: {
@@ -45,15 +76,7 @@ export function guardAgainstRepeatedReply(input: {
 
   const previousCustomer = input.recentMessages.toReversed().find((item) => item.sender_type === "customer");
   if (previousCustomer && comparable(previousCustomer.message) === comparable(input.currentMessage)) return input.reply;
-  if (input.intent === "human_handoff" || factualSearchReply(input.reply)) return input.reply;
-
-  if (input.intent === "property_search") {
-    return input.language === "en"
-      ? "I understood your new message. To continue the search, please tell me the one detail still missing: district, budget, bedrooms, or rent/buy."
-      : "Fariintaada cusub waan fahmay. Si aan raadinta u sii wado, ii sheeg xogta keliya ee weli ka maqan: degmada, budget-ka, qolalka, ama kiro/iib.";
-  }
-  return input.language === "en"
-    ? "I may not have answered your new question clearly. Please clarify the specific property, price, location, or viewing information you need."
-    : "Waxaan u muuqdaa inaanan su'aashaada cusub si cad uga jawaabin. Fadlan ii caddee property-ga, qiimaha, goobta, ama viewing-ga aad ka war rabto.";
+  if (input.intent === "human_handoff" || !unresolvedReply(input.reply)) return input.reply;
+  return clarificationFor(input.currentMessage, input.language, input.intent === "property_search");
 }
 
