@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { guardAgainstRepeatedReply, historyWithoutCurrentMessage, normalizeCustomerText } from "@/lib/ai/conversation-safety";
 import { asksForHumanAgent, extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
 import { contentLengthExceeds, logServerEvent, MAX_WEBHOOK_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -55,13 +56,12 @@ type MatchedProperty = {
 };
 
 function asksToSeeProperty(message: string) {
-  return /\b(i\s*tus|itus|soo\s+bandhig|sawir(?:ka|rada|ro)?|faahfaahin(?:ta)?|show\s+me|photos?|pictures?)\b/i.test(message);
+  return /\b(i\s*tus|itus|soo\s+bandhig|sawir(?:ka|rada|ro)?|faahfaahin(?:ta)?|show\s+me|photos?|pictures?)\b/i.test(normalizeCustomerText(message));
 }
 
 function asksForViewing(message: string) {
-  const normalized = message.normalize("NFKC").replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
-  const normalizedLower = normalized.toLowerCase();
-  if (normalizedLower === "viewing" || normalizedLower === "veiwing") return true;
+  const normalized = normalizeCustomerText(message);
+  if (normalized === "viewing") return true;
   return /\b(appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|so{1,2}\s+arki|arkaa|arko|daawado)\b/i.test(normalized);
 }
 
@@ -281,8 +281,9 @@ export async function POST(request: Request) {
   ]);
   if (!settings?.is_enabled) return NextResponse.json({ received: true, ai_disabled: true });
   const orderedHistory = (history ?? []).reverse();
-  const extraction = await extractChatRequirements(message, orderedHistory, { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
-  const inferred = inferQualificationReply(message, orderedHistory.slice(0, -1));
+  const priorHistory = historyWithoutCurrentMessage(orderedHistory, message);
+  const extraction = await extractChatRequirements(message, priorHistory, { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
+  const inferred = inferQualificationReply(message, priorHistory);
   const requirement = { ...extraction.data, ...inferred };
   const explicitHumanRequest = asksForHumanAgent(message);
   const showRequest = asksToSeeProperty(message);
@@ -374,7 +375,8 @@ export async function POST(request: Request) {
     await supabase.rpc("record_whatsapp_usage", { target_agency_id: agencyId, message_count: 1 });
     return NextResponse.json({ received: true, viewingId });
   }
-  const reply = handoff ? (requirement.language === "so" ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona." : "Your request for a human agent has been sent. Someone from the agency will contact you.") : shouldSearch ? formatPropertyReply(requirement.language, properties.length) : requirement.reply;
+  const rawReply = handoff ? (requirement.language === "so" ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona." : "Your request for a human agent has been sent. Someone from the agency will contact you.") : shouldSearch ? formatPropertyReply(requirement.language, properties.length) : requirement.reply;
+  const reply = guardAgainstRepeatedReply({ reply: rawReply, currentMessage: message, recentMessages: priorHistory, language: requirement.language, intent: requirement.intent });
   try {
     const outboundId = await sendWhatsAppText(agencyId, phone, reply);
     await supabase.from("messages").insert({ agency_id: agencyId, conversation_id: conversation.id, sender_type: "ai", message: reply, metadata: { provider: "evolution_whatsapp", provider_message_id: outboundId } });
