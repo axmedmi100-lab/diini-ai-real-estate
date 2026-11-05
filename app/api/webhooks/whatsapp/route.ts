@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { guardAgainstRepeatedReply, historyWithoutCurrentMessage, normalizeCustomerText } from "@/lib/ai/conversation-safety";
 import { extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
 import { contentLengthExceeds, logServerEvent, MAX_WEBHOOK_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -13,7 +14,7 @@ type MetaPayload = { entry?: Array<{ changes?: Array<{ field?: string; value?: M
 function normalizePhone(value: string) { return value.replace(/\D/g, ""); }
 
 function asksForViewing(message: string) {
-  return /(viewing|appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|daawado)/i.test(message.normalize("NFKC"));
+  return /(viewing|appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|daawado)/i.test(normalizeCustomerText(message));
 }
 
 function parseViewingTime(message: string, now = new Date()) {
@@ -109,7 +110,8 @@ export async function POST(request: Request) {
   ]);
   if (!settings?.is_enabled) return NextResponse.json({ received: true, ai_disabled: true });
   const orderedHistory = (history ?? []).reverse();
-  const extraction = await extractChatRequirements(message, orderedHistory, { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
+  const priorHistory = historyWithoutCurrentMessage(orderedHistory, message);
+  const extraction = await extractChatRequirements(message, priorHistory, { supportedLanguages: settings.supported_languages, qualificationFields: settings.qualification_fields, businessRules: settings.business_rules });
   const requirement = extraction.data;
   const awaitingViewingTime = orderedHistory.slice(-12).some((item) => item.sender_type === "ai" && /(?:taariikhda iyo saacadda viewing-ka|viewing date and time)/i.test(item.message));
   const parsedViewingTime = parseViewingTime(message);
@@ -142,11 +144,16 @@ export async function POST(request: Request) {
   const shouldSearch = requirement.intent === "property_search" && Boolean(requirement.purpose || requirement.district || requirement.budget_max || requirement.bedrooms || requirement.property_type || requirement.furnished !== null);
   let propertyCount = 0;
   if (shouldSearch) {
-    const { data } = await supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: requirement.purpose, wanted_district: requirement.district, min_budget: requirement.budget_min, max_budget: requirement.budget_max, min_bedrooms: requirement.bedrooms, wanted_property_type: requirement.property_type, wanted_furnished: requirement.furnished });
+    const { data, error } = await supabase.rpc("search_widget_properties", { target_agency_id: agencyId, wanted_purpose: requirement.purpose, wanted_district: requirement.district, min_budget: requirement.budget_min, max_budget: requirement.budget_max, min_bedrooms: requirement.bedrooms, wanted_property_type: requirement.property_type, wanted_furnished: requirement.furnished });
+    if (error) {
+      logServerEvent("error", "whatsapp.property_search_failed", { requestId: id, agencyId, error: error.message });
+      return new NextResponse("Property search temporarily unavailable", { status: 503, headers: { "X-Request-Id": id } });
+    }
     propertyCount = data?.length ?? 0;
   }
   const handoff = !viewingRequest && requirement.human_handoff && settings.human_handoff_enabled;
-  const reply = handoff ? (requirement.language === "so" ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona." : "Your request for a human agent has been sent. Someone from the agency will contact you.") : shouldSearch ? formatPropertyReply(requirement.language, propertyCount) : requirement.reply;
+  const rawReply = handoff ? (requirement.language === "so" ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona." : "Your request for a human agent has been sent. Someone from the agency will contact you.") : shouldSearch ? formatPropertyReply(requirement.language, propertyCount) : requirement.reply;
+  const reply = guardAgainstRepeatedReply({ reply: rawReply, currentMessage: message, recentMessages: priorHistory, language: requirement.language, intent: requirement.intent });
   if (handoff) {
     await supabase.from("conversations").update({ status: "human_active" }).eq("id", conversation.id).eq("agency_id", agencyId);
     await supabase.from("notifications").insert({ agency_id: agencyId, type: "human_handoff", title: "WhatsApp human handoff", body: `${customerName || incoming.from} wuxuu codsaday agent.`, entity_type: "conversation", entity_id: conversation.id });
