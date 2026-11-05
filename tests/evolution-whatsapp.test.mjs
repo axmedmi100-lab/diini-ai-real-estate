@@ -62,7 +62,10 @@ test("Evolution property matches send details and image media without accidental
 });
 
 test("Evolution viewing requests create a real booking instead of a generic reply", async () => {
-  const webhook = await read("app/api/webhooks/evolution/route.ts");
+  const [webhook, safety] = await Promise.all([
+    read("app/api/webhooks/evolution/route.ts"),
+    read("lib/ai/conversation-safety.ts"),
+  ]);
   assert.match(webhook, /asksForViewing/);
   assert.match(webhook, /parseSomaliViewingTime/);
   assert.match(webhook, /request_whatsapp_viewing/);
@@ -75,7 +78,8 @@ test("Evolution viewing requests create a real booking instead of a generic repl
   assert.match(webhook, /conflictPrompt/);
   assert.match(webhook, /parseSomaliViewingTime\(`\$\{conflictPrompt\.message\} \$\{message\}`\)/);
   assert.match(webhook, /!viewingRequest && explicitHumanRequest/);
-  assert.match(webhook, /ball\?an/);
+  assert.match(webhook, /isViewingRequestText/);
+  assert.match(safety, /ball\?an/);
   assert.match(webhook, /viewing time conflict/);
   assert.match(webhook, /viewingConflict/);
   assert.match(webhook, /occupiedTimes/);
@@ -84,7 +88,7 @@ test("Evolution viewing requests create a real booking instead of a generic repl
   assert.match(webhook, /monthNames/);
   assert.match(webhook, /namedDate/);
   assert.match(webhook, /Waan kuu diyaarinayaa viewing-ka/);
-  assert.match(webhook, /normalizedLower === "veiwing"/);
+  assert.match(webhook, /normalizeCustomerText/);
   assert.match(webhook, /ber\{1,2\}i/);
   assert.match(webhook, /awaitingViewingTime: true/);
   assert.ok(webhook.indexOf('if (asksForViewing(message) && !parseSomaliViewingTime(message))') < webhook.indexOf("extractChatRequirements(message"));

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { guardAgainstRepeatedReply, propertySearchFailureReply } from "@/lib/ai/conversation-safety";
 import { extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
 import { apiError, contentLengthExceeds, logServerEvent, MAX_JSON_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
   const shouldSearch = requirement.intent === "property_search" && Boolean(requirement.purpose || requirement.district || requirement.budget_max || requirement.bedrooms || requirement.property_type || requirement.furnished !== null);
   let properties: Array<Record<string, unknown>> = [];
   if (shouldSearch) {
-    const { data } = await supabase.rpc("search_widget_properties", {
+    const { data, error } = await supabase.rpc("search_widget_properties", {
       target_agency_id: agencyId,
       wanted_purpose: requirement.purpose,
       wanted_district: requirement.district,
@@ -104,15 +105,20 @@ export async function POST(request: Request) {
       wanted_property_type: requirement.property_type,
       wanted_furnished: requirement.furnished,
     });
+    if (error) {
+      logServerEvent("error", "widget.property_search_failed", { requestId: id, agencyId, code: error.code });
+      return bad(propertySearchFailureReply(requirement.language), 503, id);
+    }
     properties = data ?? [];
   }
-  const assistantMessage = requirement.human_handoff && config.human_handoff_enabled
+  const rawAssistantMessage = requirement.human_handoff && config.human_handoff_enabled
     ? requirement.language === "so"
       ? "Codsigaaga agent bani-aadam ah waa la gudbiyey. Qof ka tirsan agency-ga ayaa kula soo xiriiri doona."
       : "Your request for a human agent has been sent. Someone from the agency will contact you."
     : properties.length > 0
       ? formatPropertyReply(requirement.language, properties.length)
       : requirement.reply;
+  const assistantMessage = guardAgainstRepeatedReply({ reply: rawAssistantMessage, currentMessage: message, recentMessages: history ?? [], language: requirement.language, intent: requirement.intent });
   const meaningfulLead = shouldSearch || requirement.name || requirement.phone || requirement.email;
   if (meaningfulLead) {
     await supabase.rpc("upsert_widget_lead", {
