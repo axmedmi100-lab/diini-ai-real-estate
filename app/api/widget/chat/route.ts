@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { guardAgainstRepeatedReply } from "@/lib/ai/conversation-safety";
+import { guardAgainstRepeatedReply, propertySearchFailureReply } from "@/lib/ai/conversation-safety";
 import { extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
 import { apiError, contentLengthExceeds, logServerEvent, MAX_JSON_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
     });
     if (error) {
       logServerEvent("error", "widget.property_search_failed", { requestId: id, agencyId, code: error.code });
-      return bad("Property raadinta si ku-meel-gaar ah looma heli karo. Fadlan dib u isku day.", 503, id);
+      return bad(propertySearchFailureReply(requirement.language), 503, id);
     }
     properties = data ?? [];
   }
