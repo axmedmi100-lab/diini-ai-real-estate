@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
-import { guardAgainstRepeatedReply, historyWithoutCurrentMessage, normalizeCustomerText } from "@/lib/ai/conversation-safety";
+import { guardAgainstRepeatedReply, historyWithoutCurrentMessage, isViewingRequestText, normalizeCustomerText } from "@/lib/ai/conversation-safety";
 import { asksForHumanAgent, extractChatRequirements, formatPropertyReply } from "@/lib/ai/property-chat";
 import { contentLengthExceeds, logServerEvent, MAX_WEBHOOK_BYTES, requestId } from "@/lib/security/http";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -62,7 +62,7 @@ function asksToSeeProperty(message: string) {
 function asksForViewing(message: string) {
   const normalized = normalizeCustomerText(message);
   if (normalized === "viewing") return true;
-  return /\b(appointment|ball?an|booqasho|daawasho|so{1,2}\s+ark[ao]|so{1,2}\s+arki|arkaa|arko|daawado)\b/i.test(normalized);
+  return isViewingRequestText(message);
 }
 
 function asksForViewingStatus(message: string) {
